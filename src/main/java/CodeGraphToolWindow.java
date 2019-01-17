@@ -36,15 +36,6 @@ public class CodeGraphToolWindow {
     private JPanel codeGraphToolWindowContent;
     private JPanel canvasPanel;
 
-    private String graphStylesheet =
-            "" +
-                    "node {" +
-                    "  fill-color: #aaa;" +
-                    "  text-background-mode: plain;" +
-                    "  text-padding: 1;" +
-                    "  text-alignment: at-right;" +
-                    "}";
-
     public CodeGraphToolWindow(ToolWindow toolWindow) {
         hideToolWindowButton.addActionListener(e -> toolWindow.hide(null));
         refreshToolWindowButton.addActionListener(e -> currentDateTime());
@@ -54,6 +45,22 @@ public class CodeGraphToolWindow {
     }
 
     public void run() {
+        Project project = getActiveProject();
+        if (project == null) {
+            return;
+        }
+        Set<PsiFile> sourceCodeFiles = getSourceCodeFiles(project);
+        Map<PsiMethod, Set<PsiReference>> methodReferences = getMethodReferences(sourceCodeFiles);
+        Map<String, PsiMethod> nodeIdToMethodMap = generateMethodNodeIds(methodReferences);
+        Graph graph = createGraph();
+        Layout layout = createLayoutOnGraph(graph);
+        buildGraph(graph, nodeIdToMethodMap, methodReferences);
+        optimizeGraphLayout(layout);
+        renderGraphOnCanvas(graph);
+    }
+
+    @Nullable
+    private Project getActiveProject() {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
         Optional<Project> maybeActiveProject = Arrays.stream(projects)
                 .filter(project -> {
@@ -61,14 +68,13 @@ public class CodeGraphToolWindow {
                     return window != null && window.isActive();
                 })
                 .findFirst();
-        if (!maybeActiveProject.isPresent()) {
-            return;
-        }
-        Project project = maybeActiveProject.get();
-        // get all source files
+        return maybeActiveProject.orElse(null);
+    }
+
+    @NotNull
+    private Set<PsiFile> getSourceCodeFiles(Project project) {
         VirtualFile[] sourceRoots = ProjectRootManager.getInstance(project).getContentSourceRoots();
-        Arrays.stream(sourceRoots).forEach(root -> System.out.println(root.getCanonicalPath()));
-        Set<PsiFile> psiFiles = Arrays.stream(sourceRoots)
+        return Arrays.stream(sourceRoots)
                 .flatMap(contentSourceRoot -> {
                     List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
                     ContentIterator contentIterator = child -> {
@@ -81,234 +87,102 @@ public class CodeGraphToolWindow {
                         return true;
                     };
                     VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
-//                        ProjectFileIndex.getInstance(project).iterateContentUnderDirectory(contentSourceRoot, contentIterator);
                     return childrenVirtualFiles.stream()
                             .map(file -> PsiManager.getInstance(project).findFile(file));
                 })
                 .collect(Collectors.toSet());
-        psiFiles.forEach(file -> System.out.println(file.getVirtualFile().getName()));
+    }
 
-        // get all classes from source files
-        Set<PsiClass> psiClasses = psiFiles.stream()
-                .flatMap(psiFile -> Arrays.stream(((PsiJavaFile)psiFile).getClasses()))
+    @NotNull
+    private Map<PsiMethod, Set<PsiReference>> getMethodReferences(Set<PsiFile> sourceCodeFiles) {
+        Set<PsiMethod> sourceCodeMethods = sourceCodeFiles.stream()
+                .flatMap(psiFile -> Arrays.stream(((PsiJavaFile)psiFile).getClasses())) // get all classes
+                .flatMap(psiClass -> Arrays.stream(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
-
-        // get all methods
-        Set<PsiMethod> psiMethods = psiClasses.stream()
-                .flatMap(psiClass -> Arrays.stream(psiClass.getMethods()))
-                .collect(Collectors.toSet());
-        psiMethods.forEach(method -> System.out.println(method.getName()));
-
-        // find usages of every method, build edge from references (caller --> callee)
-        Map<PsiMethod, Set<PsiReference>> psiMethodReferencesMap = psiMethods.stream()
+        return sourceCodeMethods.stream()
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> new HashSet<>(ReferencesSearch.search(method).findAll())
                 ));
-        psiMethodReferencesMap.forEach((callee, references) -> {
-            System.out.println(String.format("--- %s ---", callee.getName()));
-            references.forEach(reference -> {
-                PsiElement callerElement = reference.getElement();
-                PsiMethod callerMethod = getContainingKnownMethod(callerElement, psiMethods);
-                if (callerMethod != null) {
-                    System.out.println(String.format("[%s] calls [%s] by %s", callerMethod.getName(),
-                            callee.getName(), reference.getCanonicalText()));
-                }
-            });
-        });
-        // list of all method dependency <callerId, calleeId>
-        List<AbstractMap.SimpleEntry<String, String>> methodDependencies = psiMethodReferencesMap.entrySet()
-                .stream()
-                .flatMap(entry -> {
-                    PsiMethod callee = entry.getKey();
-                    String calleeId = getNodeHash(callee);
-                    List<PsiMethod> callers = entry.getValue().stream()
-                            .map(reference -> getContainingKnownMethod(reference.getElement(), psiMethods))
-                            .filter(Objects::nonNull) // exclude null values (i.e. caller is out of our known methods)
-                            .collect(Collectors.toList());
-                    return callers.stream().map(caller -> new AbstractMap.SimpleEntry<>(getNodeHash(caller), calleeId));
-                })
-                .collect(Collectors.toList());
+    }
 
-        // - build a graph from all function calls
-        // - remove self cycle
-        // - detect cycles by DFS
-        // - for every cycle, sort nodes by (outdegree-indegree) descendant, remove edge from last node to first node
-        // - now graph is DAG, topological sort all nodes
-        // - set node coordinate by topological order (all on 1D line, left to right),
-        //   then try to move node closer to the origin (to the leftmost) if it's not called by the previous node
-        // - add back (1) self cycle edge (2) removed cycle edge
-        // - plot the graph
-
-        // select gs-ui renderer, which is better than the default one
+    @NotNull
+    private Graph createGraph() {
+        // set system to use gs-ui renderer, which is better than the default one
+        //noinspection SpellCheckingInspection
         System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
+
+        // create graph
         Graph graph = new MultiGraph("embedded");
         graph.addAttribute("ui.quality");
         graph.addAttribute("ui.antialias");
-        graph.addAttribute("ui.stylesheet", graphStylesheet);
-        Layout layout = new SpringBox(false);
+        graph.addAttribute("ui.stylesheet",
+                "" +
+                        "node {" +
+                        "  fill-color: #aaa;" +
+                        "  text-background-mode: plain;" +
+                        "  text-padding: 1;" +
+                        "  text-alignment: at-right;" +
+                        "}"
+        );
+        return graph;
+    }
+
+    @NotNull
+    private Layout createLayoutOnGraph(@NotNull Graph graph) {
+        Layout layout = new SpringBox(); // use SpringBox or LinLog layout
         layout.setForce(0.5);
-//        Layout layout = new LinLog(false);
         graph.addSink(layout);
         layout.addAttributeSink(graph);
+        return layout;
+    }
 
-        // draw the diagram
-        Map<String, PsiMethod> nodeIdToMethodMap = psiMethodReferencesMap.keySet()
+    @NotNull
+    private Map<String, PsiMethod> generateMethodNodeIds(@NotNull Map<PsiMethod, Set<PsiReference>> methodReferences) {
+        return methodReferences.keySet()
                 .stream()
                 .collect(Collectors.toMap(this::getNodeHash, method -> method));
-        System.out.println("--------");
-        nodeIdToMethodMap.forEach((nodeId, method) -> System.out.println(String.format("[%s]: %s", nodeId, method.getName())));
+    }
+
+    private void buildGraph(@NotNull Graph graph,
+                            @NotNull Map<String, PsiMethod> nodeIdToMethodMap,
+                            @NotNull Map<PsiMethod, Set<PsiReference>> methodReferences) {
         // add every method as a graph node
         nodeIdToMethodMap.forEach((nodeId, method) -> {
             Node node = graph.addNode(nodeId);
             node.setAttribute("ui.label", method.getName());
         });
+
         // add every reference as a graph edge
-        psiMethodReferencesMap.forEach((callee, references) -> {
+        Set<PsiMethod> knownMethods = methodReferences.keySet();
+        methodReferences.forEach((callee, references) -> {
             String calleeId = getNodeHash(callee);
             references.forEach(reference -> {
                 PsiElement callerElement = reference.getElement();
-                PsiMethod caller = getContainingKnownMethod(callerElement, psiMethods);
+                PsiMethod caller = getContainingKnownMethod(callerElement, knownMethods);
                 if (caller != null) {
-                    System.out.println(String.format("Adding edge for %s -> %s", caller.getName(), callee.getName()));
                     String callerId = getNodeHash(caller);
                     String edgeId = getEdgeHash(callerId, calleeId);
-                    // add an edge only if it's non-existent (may happen if multiple calls from method 1 -> method 2)
+                    // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
                     if (graph.getEdge(edgeId) == null) {
                         graph.addEdge(edgeId, callerId, calleeId, true);
                     }
                 }
             });
         });
-        System.out.println("--------");
-        graph.getEdgeSet().forEach(edge -> {
-            PsiMethod source = nodeIdToMethodMap.get(edge.getNode0().getId());
-            PsiMethod destination = nodeIdToMethodMap.get(edge.getNode1().getId());
-            System.out.println(String.format("edge [%s]: %s to %s", edge.getId(), source.getName(), destination.getName()));
-        });
-        // find and remove self cycle
-//        Set<AbstractMap.SimpleEntry<String, String>> selfCycleEdges = methodDependencies.stream()
-//                .filter(entry -> entry.getKey().equals(entry.getValue()))
-//                .collect(Collectors.toSet());
-//        selfCycleEdges.forEach(entry -> graph.removeEdge(getEdgeHash(entry.getKey(), entry.getValue())));
-        // using custom BFS to break cycle in a greedy manner
-//        Set<AbstractMap.SimpleEntry<String, String>> cycleEdges = new HashSet<>();
-//        graph.getNodeSet().forEach(bfsRootNode -> {
-//            Map<String, Integer> bfsNodeDepthMap = new HashMap<>();
-//            int depth = 0;
-//            ArrayDeque<Node> queue = new ArrayDeque<>();
-//            queue.add(bfsRootNode);
-//            while (!queue.isEmpty()) {
-//                Set<Node> nextRoundNodes = new HashSet<>();
-//                final int currentDepth = depth;
-//                queue.forEach(caller -> {
-//                    String callerId = caller.getId();
-//                    bfsNodeDepthMap.put(callerId, currentDepth);
-//                    caller.getLeavingEdgeSet().forEach(edge -> {
-//                        Node callee = edge.getOpposite(caller);
-//                        String calleeId = callee.getId();
-//                        if (bfsNodeDepthMap.containsKey(calleeId)) {
-//                            // callee is visited
-//                            if (bfsNodeDepthMap.get(calleeId) < currentDepth) {
-//                                // visited and the callee is in a lower depth, a cycle is detected!
-//                                graph.removeEdge(edge);
-//                                cycleEdges.add(new AbstractMap.SimpleEntry<>(callerId, calleeId));
-//                            }
-//                        } else {
-//                            // callee hasn't been visited, add to next round
-//                            nextRoundNodes.add(callee);
-//                        }
-//                    });
-//                });
-//                queue.clear();
-//                queue.addAll(nextRoundNodes);
-//                ++depth;
-//            }
-//        });
-//        graph.getEdgeSet().forEach(edge -> System.out.println(String.format("acyclic %s -> %s",
-//                nodeIdToMethodMap.get(edge.getNode0().getId()), nodeIdToMethodMap.get(edge.getNode1().getId()))));
-//        System.out.println(String.format("edge count %d", graph.getEdgeCount()));
+    }
 
-        // find and use minimum spanning tree (MST) of the graph as the DAG
-//        Kruskal kruskal = new Kruskal();
-//        kruskal.init(graph);
-//        kruskal.compute();
-//        Set<String> treeEdgeIds = StreamSupport.stream(kruskal.getTreeEdges().spliterator(), false)
-//                .map(Element::getId)
-//                .collect(Collectors.toSet());
-//        Set<AbstractMap.SimpleEntry<String, String>> graphCycleEdges = graph.getEdgeSet().stream()
-//                .filter(edge -> !treeEdgeIds.contains(edge.getId()))
-//                .map(edge -> new AbstractMap.SimpleEntry<>(edge.getNode0().getId(), edge.getNode1().getId()))
-//                .collect(Collectors.toSet());
-//        graphCycleEdges.forEach(entry -> graph.removeEdge(getEdgeHash(entry.getKey(), entry.getValue())));
-//        graph.getNodeSet().forEach(node -> System.out.println(String.format("after mst node %s", nodeIdToMethodMap.get(node.getId()))));
-//        System.out.println(String.format("node count %d", graph.getNodeCount()));
-//        graph.getEdgeSet().forEach(edge -> System.out.println(String.format("after mst %s -> %s",
-//                nodeIdToMethodMap.get(edge.getNode0().getId()), nodeIdToMethodMap.get(edge.getNode1().getId()))));
-//        System.out.println(String.format("edge count %d", graph.getEdgeCount()));
-
-        // - now graph is DAG, topological sort all nodes
-//        CustomTopologicalSort customTopologicalSort = new CustomTopologicalSort();
-//        customTopologicalSort.init(graph);
-//        customTopologicalSort.compute();
-//        customTopologicalSort.getSortedNodes()
-//                .forEach(node -> System.out.println(String.format("sorted %s", nodeIdToMethodMap.get(node.getId()))));
-//        // determine node coordinates by topological sorted order
-//        List<Node> sortedNodes = customTopologicalSort.getSortedNodes();
-//        Map<String, Integer> nodeIdToPositionMap = new HashMap<>();
-//        sortedNodes.forEach(node -> {
-//            int maxCallerPosition = node.getEnteringEdgeSet().stream()
-//                    .map(edge -> edge.getOpposite(node).getId())
-//                    .filter(nodeIdToPositionMap::containsKey)
-//                    .map(nodeIdToPositionMap::get)
-//                    .mapToInt(position -> position)
-//                    .max()
-//                    .orElse(-1);
-//            nodeIdToPositionMap.put(node.getId(), maxCallerPosition + 1);
-//        });
-//        sortedNodes.forEach(node -> System.out.println(String.format("%s position: %d",
-//                nodeIdToMethodMap.get(node.getId()), nodeIdToPositionMap.get(node.getId()))));
-//        nodeIdToPositionMap.entrySet()
-//                .stream()
-//                .collect(Collectors.groupingBy(Map.Entry::getValue))
-//                .forEach((xPosition, nodeIdPositions) ->
-//                        IntStream.range(0, nodeIdPositions.size())
-//                                .forEach(index -> {
-//                                    String nodeId = nodeIdPositions.get(index).getKey();
-//                                    Node node = graph.getNode(nodeId);
-//                                    PsiMethod method = nodeIdToMethodMap.get(nodeId);
-////                                    node.setAttribute("xy", xPosition, index);
-//                                    node.setAttribute("ui.label", method.getName());
-//                                })
-//                );
-
-
-//        graph.display();
-
-        Viewer viewer = new Viewer(graph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
-        viewer.disableAutoLayout();
-        ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame"
-        // iterate the compute() method a number of times
+    private void optimizeGraphLayout(@NotNull Layout layout) {
         while (layout.getStabilization() < 0.9) {
             layout.compute();
         }
+    }
+
+    private void renderGraphOnCanvas(@NotNull Graph graph) {
+        Viewer viewer = new Viewer(graph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
+        viewer.disableAutoLayout();
+        ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame" (no window)
         canvasPanel.add(viewPanel);
-
-//        TarjanStronglyConnectedComponents tscc = new TarjanStronglyConnectedComponents();
-//        tscc.init(graph);
-//        tscc.compute();
-//        for (Node n : graph.getEachNode()) {
-//            n.setAttribute("ui.label", (Object)n.getAttribute(tscc.getSCCIndexAttribute()));
-//        }
-
-//        sourceRoots.forEach(root -> System.out.println(String.format("%s, %s", root.getVirtualFile().getCanonicalPath(), root.getFileType())));
-
-//        Collection<String> javaMethodNames = JavaMethodNameIndex.getInstance().getAllKeys(project);
-//        List<PsiMethod> javaMethods = javaMethodNames.stream()
-//                .flatMap(methodName -> JavaMethodNameIndex.getInstance().get(methodName, project, GlobalSearchScope.projectScope(project)).stream())
-//                .collect(Collectors.toList());
-//        javaMethodNames.forEach(System.out::println);
-//        ProjectRootManager.getInstance(project).getFileIndex();
     }
 
     @Nullable
