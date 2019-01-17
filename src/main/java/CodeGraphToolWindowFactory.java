@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 public class CodeGraphToolWindowFactory implements ToolWindowFactory {
     // Create the tool window content.
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        CodeGraphToolWindow codeGraphToolWindow = new CodeGraphToolWindow(toolWindow);
+        CodeGraphToolWindow codeGraphToolWindow = new CodeGraphToolWindow();
         ContentFactory contentFactory = ContentFactory.SERVICE.getInstance();
         Content content = contentFactory.createContent(codeGraphToolWindow.getContent(), "", false);
         toolWindow.getContentManager().addContent(content);

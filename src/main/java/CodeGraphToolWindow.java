@@ -4,7 +4,6 @@ import com.intellij.openapi.roots.ContentIterator;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.search.searches.ReferencesSearch;
@@ -27,21 +26,12 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings("WeakerAccess")
 public class CodeGraphToolWindow {
-    private JButton refreshToolWindowButton;
-    private JButton hideToolWindowButton;
     private JButton runButton;
-    private JLabel currentDate;
-    private JLabel currentTime;
-    private JLabel timeZone;
     private JPanel codeGraphToolWindowContent;
     private JPanel canvasPanel;
 
-    public CodeGraphToolWindow(ToolWindow toolWindow) {
-        hideToolWindowButton.addActionListener(e -> toolWindow.hide(null));
-        refreshToolWindowButton.addActionListener(e -> currentDateTime());
+    public CodeGraphToolWindow() {
         runButton.addActionListener(e -> run());
-
-        this.currentDateTime();
     }
 
     public void run() {
@@ -182,7 +172,9 @@ public class CodeGraphToolWindow {
         Viewer viewer = new Viewer(graph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
         viewer.disableAutoLayout();
         ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame" (no window)
+        canvasPanel.removeAll();
         canvasPanel.add(viewPanel);
+        canvasPanel.updateUI();
     }
 
     @Nullable
@@ -204,30 +196,7 @@ public class CodeGraphToolWindow {
         return String.format("%s-%s", nodeId1, nodeId2);
     }
 
-    public void currentDateTime() {
-        // Get current date and time
-        Calendar instance = Calendar.getInstance();
-        currentDate.setText(instance.get(Calendar.DAY_OF_MONTH) + "/"
-                + (instance.get(Calendar.MONTH) + 1) + "/" +
-                instance.get(Calendar.YEAR));
-        currentDate.setIcon(new ImageIcon(getClass().getResource("/icons/Calendar-icon.png")));
-        int min = instance.get(Calendar.MINUTE);
-        String strMin;
-        if (min < 10) {
-            strMin = "0" + min;
-        } else {
-            strMin = String.valueOf(min);
-        }
-        currentTime.setText(instance.get(Calendar.HOUR_OF_DAY) + ":" + strMin);
-        currentTime.setIcon(new ImageIcon(getClass().getResource("/icons/Time-icon.png")));
-        // Get time zone
-        long gmt_Offset = instance.get(Calendar.ZONE_OFFSET); // offset from GMT in milliseconds
-        String str_gmt_Offset = String.valueOf(gmt_Offset / 3600000);
-        str_gmt_Offset = (gmt_Offset > 0) ? "GMT + " + str_gmt_Offset : "GMT - " + str_gmt_Offset;
-        timeZone.setText(str_gmt_Offset);
-        timeZone.setIcon(new ImageIcon(getClass().getResource("/icons/Time-zone-icon.png")));
-    }
-
+    @NotNull
     public JPanel getContent() {
         return codeGraphToolWindowContent;
     }
