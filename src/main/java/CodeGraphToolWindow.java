@@ -13,6 +13,8 @@ import jdk.internal.jline.internal.Nullable;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.MultiGraph;
+import org.graphstream.ui.layout.Layout;
+import org.graphstream.ui.layout.springbox.implementations.SpringBox;
 import org.graphstream.ui.swingViewer.ViewPanel;
 import org.graphstream.ui.view.Viewer;
 import org.jetbrains.annotations.NotNull;
@@ -22,7 +24,6 @@ import java.awt.*;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @SuppressWarnings("WeakerAccess")
 public class CodeGraphToolWindow {
@@ -34,6 +35,15 @@ public class CodeGraphToolWindow {
     private JLabel timeZone;
     private JPanel codeGraphToolWindowContent;
     private JPanel canvasPanel;
+
+    private String graphStylesheet =
+            "" +
+                    "node {" +
+                    "  fill-color: #aaa;" +
+                    "  text-background-mode: plain;" +
+                    "  text-padding: 1;" +
+                    "  text-alignment: at-right;" +
+                    "}";
 
     public CodeGraphToolWindow(ToolWindow toolWindow) {
         hideToolWindowButton.addActionListener(e -> toolWindow.hide(null));
@@ -130,18 +140,29 @@ public class CodeGraphToolWindow {
         // - add back (1) self cycle edge (2) removed cycle edge
         // - plot the graph
 
-        // draw the diagram
+        // select gs-ui renderer, which is better than the default one
+        System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
         Graph graph = new MultiGraph("embedded");
+        graph.addAttribute("ui.quality");
+        graph.addAttribute("ui.antialias");
+        graph.addAttribute("ui.stylesheet", graphStylesheet);
+        Layout layout = new SpringBox(false);
+        layout.setForce(0.5);
+//        Layout layout = new LinLog(false);
+        graph.addSink(layout);
+        layout.addAttributeSink(graph);
+
+        // draw the diagram
         Map<String, PsiMethod> nodeIdToMethodMap = psiMethodReferencesMap.keySet()
                 .stream()
-                .collect(Collectors.toMap(
-                        this::getNodeHash,
-                        psiMethod -> psiMethod
-                ));
+                .collect(Collectors.toMap(this::getNodeHash, method -> method));
         System.out.println("--------");
         nodeIdToMethodMap.forEach((nodeId, method) -> System.out.println(String.format("[%s]: %s", nodeId, method.getName())));
         // add every method as a graph node
-        nodeIdToMethodMap.keySet().forEach(graph::addNode);
+        nodeIdToMethodMap.forEach((nodeId, method) -> {
+            Node node = graph.addNode(nodeId);
+            node.setAttribute("ui.label", method.getName());
+        });
         // add every reference as a graph edge
         psiMethodReferencesMap.forEach((callee, references) -> {
             String calleeId = getNodeHash(callee);
@@ -166,56 +187,47 @@ public class CodeGraphToolWindow {
             System.out.println(String.format("edge [%s]: %s to %s", edge.getId(), source.getName(), destination.getName()));
         });
         // find and remove self cycle
-        Set<AbstractMap.SimpleEntry<String, String>> selfCycleEdges = methodDependencies.stream()
-                .filter(entry -> entry.getKey().equals(entry.getValue()))
-                .collect(Collectors.toSet());
-        selfCycleEdges.forEach(entry -> graph.removeEdge(getEdgeHash(entry.getKey(), entry.getValue())));
-        //
-        //
-        //
-        //
-        // TODO problem: mst is too conservative, it removes many non-cycle edges
-        //
-        //
-        //
-        //
+//        Set<AbstractMap.SimpleEntry<String, String>> selfCycleEdges = methodDependencies.stream()
+//                .filter(entry -> entry.getKey().equals(entry.getValue()))
+//                .collect(Collectors.toSet());
+//        selfCycleEdges.forEach(entry -> graph.removeEdge(getEdgeHash(entry.getKey(), entry.getValue())));
         // using custom BFS to break cycle in a greedy manner
-        Set<AbstractMap.SimpleEntry<String, String>> cycleEdges = new HashSet<>();
-        graph.getNodeSet().forEach(bfsRootNode -> {
-            Map<String, Integer> bfsNodeDepthMap = new HashMap<>();
-            int depth = 0;
-            ArrayDeque<Node> queue = new ArrayDeque<>();
-            queue.add(bfsRootNode);
-            while (!queue.isEmpty()) {
-                Set<Node> nextRoundNodes = new HashSet<>();
-                final int currentDepth = depth;
-                queue.forEach(caller -> {
-                    String callerId = caller.getId();
-                    bfsNodeDepthMap.put(callerId, currentDepth);
-                    caller.getLeavingEdgeSet().forEach(edge -> {
-                        Node callee = edge.getOpposite(caller);
-                        String calleeId = callee.getId();
-                        if (bfsNodeDepthMap.containsKey(calleeId)) {
-                            // callee is visited
-                            if (bfsNodeDepthMap.get(calleeId) < currentDepth) {
-                                // visited and the callee is in a lower depth, a cycle is detected!
-                                graph.removeEdge(edge);
-                                cycleEdges.add(new AbstractMap.SimpleEntry<>(callerId, calleeId));
-                            }
-                        } else {
-                            // callee hasn't been visited, add to next round
-                            nextRoundNodes.add(callee);
-                        }
-                    });
-                });
-                queue.clear();
-                queue.addAll(nextRoundNodes);
-                ++depth;
-            }
-        });
-        graph.getEdgeSet().forEach(edge -> System.out.println(String.format("acyclic %s -> %s",
-                nodeIdToMethodMap.get(edge.getNode0().getId()), nodeIdToMethodMap.get(edge.getNode1().getId()))));
-        System.out.println(String.format("edge count %d", graph.getEdgeCount()));
+//        Set<AbstractMap.SimpleEntry<String, String>> cycleEdges = new HashSet<>();
+//        graph.getNodeSet().forEach(bfsRootNode -> {
+//            Map<String, Integer> bfsNodeDepthMap = new HashMap<>();
+//            int depth = 0;
+//            ArrayDeque<Node> queue = new ArrayDeque<>();
+//            queue.add(bfsRootNode);
+//            while (!queue.isEmpty()) {
+//                Set<Node> nextRoundNodes = new HashSet<>();
+//                final int currentDepth = depth;
+//                queue.forEach(caller -> {
+//                    String callerId = caller.getId();
+//                    bfsNodeDepthMap.put(callerId, currentDepth);
+//                    caller.getLeavingEdgeSet().forEach(edge -> {
+//                        Node callee = edge.getOpposite(caller);
+//                        String calleeId = callee.getId();
+//                        if (bfsNodeDepthMap.containsKey(calleeId)) {
+//                            // callee is visited
+//                            if (bfsNodeDepthMap.get(calleeId) < currentDepth) {
+//                                // visited and the callee is in a lower depth, a cycle is detected!
+//                                graph.removeEdge(edge);
+//                                cycleEdges.add(new AbstractMap.SimpleEntry<>(callerId, calleeId));
+//                            }
+//                        } else {
+//                            // callee hasn't been visited, add to next round
+//                            nextRoundNodes.add(callee);
+//                        }
+//                    });
+//                });
+//                queue.clear();
+//                queue.addAll(nextRoundNodes);
+//                ++depth;
+//            }
+//        });
+//        graph.getEdgeSet().forEach(edge -> System.out.println(String.format("acyclic %s -> %s",
+//                nodeIdToMethodMap.get(edge.getNode0().getId()), nodeIdToMethodMap.get(edge.getNode1().getId()))));
+//        System.out.println(String.format("edge count %d", graph.getEdgeCount()));
 
         // find and use minimum spanning tree (MST) of the graph as the DAG
 //        Kruskal kruskal = new Kruskal();
@@ -234,65 +246,52 @@ public class CodeGraphToolWindow {
 //        graph.getEdgeSet().forEach(edge -> System.out.println(String.format("after mst %s -> %s",
 //                nodeIdToMethodMap.get(edge.getNode0().getId()), nodeIdToMethodMap.get(edge.getNode1().getId()))));
 //        System.out.println(String.format("edge count %d", graph.getEdgeCount()));
+
         // - now graph is DAG, topological sort all nodes
-        CustomTopologicalSort customTopologicalSort = new CustomTopologicalSort();
-        customTopologicalSort.init(graph);
-        customTopologicalSort.compute();
-        customTopologicalSort.getSortedNodes()
-                .forEach(node -> System.out.println(String.format("sorted %s", nodeIdToMethodMap.get(node.getId()))));
-        // determine node coordinates by topological sorted order
-        List<Node> sortedNodes = customTopologicalSort.getSortedNodes();
-        Map<String, Integer> nodeIdToPositionMap = new HashMap<>();
-        sortedNodes.forEach(node -> {
-            int maxCallerPosition = node.getEnteringEdgeSet().stream()
-                    .map(edge -> edge.getOpposite(node).getId())
-                    .filter(nodeIdToPositionMap::containsKey)
-                    .map(nodeIdToPositionMap::get)
-                    .mapToInt(position -> position)
-                    .max()
-                    .orElse(-1);
-            nodeIdToPositionMap.put(node.getId(), maxCallerPosition + 1);
-        });
-        sortedNodes.forEach(node -> System.out.println(String.format("%s position: %d",
-                nodeIdToMethodMap.get(node.getId()), nodeIdToPositionMap.get(node.getId()))));
-        nodeIdToPositionMap.entrySet()
-                .stream()
-                .collect(Collectors.groupingBy(Map.Entry::getValue))
-                .forEach((xPosition, nodeIdPositions) ->
-                        IntStream.range(0, nodeIdPositions.size())
-                                .forEach(index -> {
-                                    String nodeId = nodeIdPositions.get(index).getKey();
-                                    Node node = graph.getNode(nodeId);
-                                    PsiMethod method = nodeIdToMethodMap.get(nodeId);
-                                    node.setAttribute("xy", xPosition, index);
-                                    node.setAttribute("ui.label", method.getName());
-                                })
-                );
+//        CustomTopologicalSort customTopologicalSort = new CustomTopologicalSort();
+//        customTopologicalSort.init(graph);
+//        customTopologicalSort.compute();
+//        customTopologicalSort.getSortedNodes()
+//                .forEach(node -> System.out.println(String.format("sorted %s", nodeIdToMethodMap.get(node.getId()))));
+//        // determine node coordinates by topological sorted order
+//        List<Node> sortedNodes = customTopologicalSort.getSortedNodes();
+//        Map<String, Integer> nodeIdToPositionMap = new HashMap<>();
+//        sortedNodes.forEach(node -> {
+//            int maxCallerPosition = node.getEnteringEdgeSet().stream()
+//                    .map(edge -> edge.getOpposite(node).getId())
+//                    .filter(nodeIdToPositionMap::containsKey)
+//                    .map(nodeIdToPositionMap::get)
+//                    .mapToInt(position -> position)
+//                    .max()
+//                    .orElse(-1);
+//            nodeIdToPositionMap.put(node.getId(), maxCallerPosition + 1);
+//        });
+//        sortedNodes.forEach(node -> System.out.println(String.format("%s position: %d",
+//                nodeIdToMethodMap.get(node.getId()), nodeIdToPositionMap.get(node.getId()))));
+//        nodeIdToPositionMap.entrySet()
+//                .stream()
+//                .collect(Collectors.groupingBy(Map.Entry::getValue))
+//                .forEach((xPosition, nodeIdPositions) ->
+//                        IntStream.range(0, nodeIdPositions.size())
+//                                .forEach(index -> {
+//                                    String nodeId = nodeIdPositions.get(index).getKey();
+//                                    Node node = graph.getNode(nodeId);
+//                                    PsiMethod method = nodeIdToMethodMap.get(nodeId);
+////                                    node.setAttribute("xy", xPosition, index);
+//                                    node.setAttribute("ui.label", method.getName());
+//                                })
+//                );
 
 
-        // find and remove cycle by dfs
-//        findAndRemoveCycle(graph);
-
-
-
-
-//        Node nodeA = graph.addNode("A" );
-//        nodeA.setAttribute("xy", 0, 0);
-//        Node nodeB = graph.addNode("B" );
-//        nodeB.setAttribute("xy", 1, 0);
-//        Node nodeC = graph.addNode("C" );
-//        nodeC.setAttribute("xy", 0, 1);
-//        graph.addEdge("AB", "A", "B");
-//        graph.addEdge("BC", "B", "C");
-//        graph.addEdge("CA", "C", "A");
-
-
-
-
+//        graph.display();
 
         Viewer viewer = new Viewer(graph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
         viewer.disableAutoLayout();
         ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame"
+        // iterate the compute() method a number of times
+        while (layout.getStabilization() < 0.9) {
+            layout.compute();
+        }
         canvasPanel.add(viewPanel);
 
 //        TarjanStronglyConnectedComponents tscc = new TarjanStronglyConnectedComponents();
