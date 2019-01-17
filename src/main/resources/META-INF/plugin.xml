@@ -1,0 +1,30 @@
+<idea-plugin>
+    <id>com.jetbrains.code-graph-plugin</id>
+    <name>Code Graph</name>
+    <vendor email="chentai.kao@gmail.com" url="https://chent.ai">Chentai</vendor>
+
+    <description>A tool to visualize class/function/variable level dependency graph.</description>
+
+    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <!-- uncomment to enable plugin in all products -->
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+        <toolWindow
+                id="Code Graph"
+                secondary="true"
+                icon="/icons/plus.png"
+                anchor="right"
+                factoryClass="CodeGraphToolWindowFactory"/>
+    </extensions>
+
+    <actions>
+        <!-- Add your actions here -->
+        <group id="MyPlugin.SampleMenu" text="Greeting" description="Greeting menu">
+            <add-to-group group-id="MainMenu" anchor="last"/>
+            <action id="Myplugin.Textboxes" class="HelloAction" text="Hello" description="Says hello"/>
+        </group>
+    </actions>
+</idea-plugin>
