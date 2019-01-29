@@ -8,21 +8,28 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.search.searches.ReferencesSearch;
 import com.intellij.psi.util.PsiTreeUtil;
-import jdk.internal.jline.internal.Nullable;
+import guru.nidi.graphviz.attribute.Label;
+import guru.nidi.graphviz.attribute.RankDir;
+import guru.nidi.graphviz.engine.Format;
+import guru.nidi.graphviz.engine.Graphviz;
+import guru.nidi.graphviz.model.MutableNode;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.MultiGraph;
-import org.graphstream.ui.layout.Layout;
-import org.graphstream.ui.layout.springbox.implementations.SpringBox;
 import org.graphstream.ui.swingViewer.ViewPanel;
 import org.graphstream.ui.view.Viewer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static guru.nidi.graphviz.model.Factory.mutGraph;
+import static guru.nidi.graphviz.model.Factory.mutNode;
 
 @SuppressWarnings("WeakerAccess")
 public class CodeGraphToolWindow {
@@ -40,13 +47,20 @@ public class CodeGraphToolWindow {
             return;
         }
         Set<PsiFile> sourceCodeFiles = getSourceCodeFiles(project);
+        System.out.println(String.format("found %d files", sourceCodeFiles.size()));
         Map<PsiMethod, Set<PsiReference>> methodReferences = getMethodReferences(sourceCodeFiles);
         Map<String, PsiMethod> nodeIdToMethodMap = generateMethodNodeIds(methodReferences);
-        Graph graph = createGraph();
-        Layout layout = createLayoutOnGraph(graph);
-        buildGraph(graph, nodeIdToMethodMap, methodReferences);
-        optimizeGraphLayout(layout);
-        renderGraphOnCanvas(graph);
+        System.out.println(String.format("found %d methods", nodeIdToMethodMap.size()));
+        Graph gsGraph = createGraph();
+        System.out.println("--- building graph ---");
+        buildGraph(gsGraph, nodeIdToMethodMap, methodReferences);
+        System.out.println("--- getting layout from GraphViz ---");
+        Map<String, AbstractMap.SimpleEntry<Integer, Integer>> nodeCoordinateMap = layoutByGraphViz(gsGraph);
+        System.out.println("--- applying layout from GraphViz to set node position ---");
+        applyGraphLayout(gsGraph, nodeCoordinateMap);
+        System.out.println("--- rendering graph ---");
+        renderGraphOnCanvas(gsGraph);
+        System.out.println("--- rendered ---");
     }
 
     @Nullable
@@ -64,6 +78,7 @@ public class CodeGraphToolWindow {
     @NotNull
     private Set<PsiFile> getSourceCodeFiles(Project project) {
         VirtualFile[] sourceRoots = ProjectRootManager.getInstance(project).getContentSourceRoots();
+        System.out.println(String.format("found %d source roots", sourceRoots.length));
         return Arrays.stream(sourceRoots)
                 .flatMap(contentSourceRoot -> {
                     List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
@@ -103,28 +118,22 @@ public class CodeGraphToolWindow {
         System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
 
         // create graph
-        Graph graph = new MultiGraph("embedded");
-        graph.addAttribute("ui.quality");
-        graph.addAttribute("ui.antialias");
-        graph.addAttribute("ui.stylesheet",
+        Graph gsGraph = new MultiGraph("embedded");
+        gsGraph.addAttribute("ui.quality");
+        gsGraph.addAttribute("ui.antialias");
+
+        // set up graph styling
+        // GraphStream CSS doc: http://graphstream-project.org/doc/Advanced-Concepts/GraphStream-CSS-Reference/
+        gsGraph.addAttribute("ui.stylesheet",
                 "" +
                         "node {" +
                         "  fill-color: #aaa;" +
-                        "  text-background-mode: plain;" +
-                        "  text-padding: 1;" +
+                        "  text-offset: 10, 10;" +
+                        "  text-color: #33f;" +
                         "  text-alignment: at-right;" +
                         "}"
         );
-        return graph;
-    }
-
-    @NotNull
-    private Layout createLayoutOnGraph(@NotNull Graph graph) {
-        Layout layout = new SpringBox(); // use SpringBox or LinLog layout
-        layout.setForce(0.5);
-        graph.addSink(layout);
-        layout.addAttributeSink(graph);
-        return layout;
+        return gsGraph;
     }
 
     @NotNull
@@ -134,12 +143,12 @@ public class CodeGraphToolWindow {
                 .collect(Collectors.toMap(this::getNodeHash, method -> method));
     }
 
-    private void buildGraph(@NotNull Graph graph,
+    private void buildGraph(@NotNull Graph gsGraph,
                             @NotNull Map<String, PsiMethod> nodeIdToMethodMap,
                             @NotNull Map<PsiMethod, Set<PsiReference>> methodReferences) {
         // add every method as a graph node
         nodeIdToMethodMap.forEach((nodeId, method) -> {
-            Node node = graph.addNode(nodeId);
+            Node node = gsGraph.addNode(nodeId);
             node.setAttribute("ui.label", method.getName());
         });
 
@@ -154,22 +163,25 @@ public class CodeGraphToolWindow {
                     String callerId = getNodeHash(caller);
                     String edgeId = getEdgeHash(callerId, calleeId);
                     // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
-                    if (graph.getEdge(edgeId) == null) {
-                        graph.addEdge(edgeId, callerId, calleeId, true);
+                    if (gsGraph.getEdge(edgeId) == null) {
+                        gsGraph.addEdge(edgeId, callerId, calleeId, true);
                     }
                 }
             });
         });
     }
 
-    private void optimizeGraphLayout(@NotNull Layout layout) {
-        while (layout.getStabilization() < 0.9) {
-            layout.compute();
-        }
+    private void applyGraphLayout(@NotNull Graph gsGraph,
+                                  @NotNull Map<String, AbstractMap.SimpleEntry<Integer, Integer>> nodeCoordinateMap) {
+        nodeCoordinateMap.forEach((nodeId, coordinate) -> {
+            int x = coordinate.getKey();
+            int y = coordinate.getValue();
+            gsGraph.getNode(nodeId).setAttribute("xy", x, y);
+        });
     }
 
-    private void renderGraphOnCanvas(@NotNull Graph graph) {
-        Viewer viewer = new Viewer(graph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
+    private void renderGraphOnCanvas(@NotNull Graph gsGraph) {
+        Viewer viewer = new Viewer(gsGraph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
         viewer.disableAutoLayout();
         ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame" (no window)
         canvasPanel.removeAll();
@@ -194,6 +206,49 @@ public class CodeGraphToolWindow {
     @NotNull
     private String getEdgeHash(@NotNull String nodeId1, @NotNull String nodeId2) {
         return String.format("%s-%s", nodeId1, nodeId2);
+    }
+
+    @NotNull
+    private Map<String, AbstractMap.SimpleEntry<Integer, Integer>> layoutByGraphViz(@NotNull Graph gsGraph) {
+        guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
+                .setDirected(true)
+                .graphAttrs()
+                .add(RankDir.LEFT_TO_RIGHT);
+
+        // GraphViz's node is rendered with its label inside, which takes redundant space and ruins layout.
+        // So I use a dummy empty label to make GraphViz create all nodes with the same smallest size.
+        Label dummyGraphVizNodeLabel = Label.of("");
+        gsGraph.getNodeSet()
+                .forEach(node -> {
+                    MutableNode gvNode = mutNode(dummyGraphVizNodeLabel).setName(node.getId());
+                    StreamSupport.stream(node.getEachLeavingEdge().spliterator(), false)
+                            .forEach(edge -> gvNode.addLink(edge.getTargetNode().getId()));
+                    gvGraph.add(gvNode);
+                });
+        String layoutBlueprint = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
+
+        // parse the GraphViz layout as a mapping from "node name" to "x-y coordinate (percent of full graph size)"
+        // GraphViz doc: https://graphviz.gitlab.io/_pages/doc/info/output.html#d:plain
+        List<String> layoutLines = Arrays.asList(layoutBlueprint.split("\n"));
+        String graphSizeLine = layoutLines.stream()
+                .filter(line -> line.startsWith("graph"))
+                .findFirst()
+                .orElse("");
+        String[] graphSizeParts = graphSizeLine.split(" ");
+        float graphWidth = Float.parseFloat(graphSizeParts[2]);
+        float graphHeight = Float.parseFloat(graphSizeParts[3]);
+        int graphScale = 100;
+        return layoutLines.stream()
+                .filter(line -> line.startsWith("node"))
+                .map(line -> line.split(" "))
+                .collect(Collectors.toMap(
+                        parts -> parts[1],
+                        parts -> {
+                            int x = Math.round(graphScale * Float.parseFloat(parts[2]) / graphWidth);
+                            int y = Math.round(graphScale * Float.parseFloat(parts[3]) / graphHeight);
+                            return new AbstractMap.SimpleEntry<>(x, y);
+                        }
+                ));
     }
 
     @NotNull
