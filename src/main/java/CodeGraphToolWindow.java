@@ -8,7 +8,6 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.search.searches.ReferencesSearch;
 import com.intellij.psi.util.PsiTreeUtil;
-import guru.nidi.graphviz.attribute.Label;
 import guru.nidi.graphviz.attribute.RankDir;
 import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
@@ -16,13 +15,16 @@ import guru.nidi.graphviz.model.MutableNode;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.MultiGraph;
+import org.graphstream.ui.graphicGraph.GraphicElement;
 import org.graphstream.ui.swingViewer.ViewPanel;
 import org.graphstream.ui.view.Viewer;
+import org.graphstream.ui.view.util.DefaultMouseManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -59,8 +61,10 @@ public class CodeGraphToolWindow {
         System.out.println("--- applying layout from GraphViz to set node position ---");
         applyGraphLayout(gsGraph, nodeCoordinateMap);
         System.out.println("--- rendering graph ---");
-        renderGraphOnCanvas(gsGraph);
+        ViewPanel viewPanel = renderGraphOnCanvas(gsGraph);
         System.out.println("--- rendered ---");
+        attachEventListeners(viewPanel, gsGraph);
+        System.out.println("--- attached event listeners ---");
     }
 
     @Nullable
@@ -177,16 +181,66 @@ public class CodeGraphToolWindow {
             int x = coordinate.getKey();
             int y = coordinate.getValue();
             gsGraph.getNode(nodeId).setAttribute("xy", x, y);
-        });
+        });                System.out.println("dragged");
     }
 
-    private void renderGraphOnCanvas(@NotNull Graph gsGraph) {
-        Viewer viewer = new Viewer(gsGraph, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
+    @NotNull
+    private ViewPanel renderGraphOnCanvas(@NotNull Graph gsGraph) {
+        Viewer viewer = new Viewer(gsGraph, Viewer.ThreadingModel.GRAPH_IN_GUI_THREAD);
         viewer.disableAutoLayout();
         ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame" (no window)
         canvasPanel.removeAll();
         canvasPanel.add(viewPanel);
         canvasPanel.updateUI();
+        return viewPanel;
+    }
+
+    private void attachEventListeners(@NotNull ViewPanel viewPanel, @NotNull Graph gsGraph) {
+        viewPanel.setMouseManager(new DefaultMouseManager() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                Node node = getNodeUnderMouse(event);
+                if (node != null) {
+                    System.out.println(String.format("clicked on node %s", node.getId()));
+                }
+            }
+
+            @Override
+            public void mousePressed(MouseEvent event) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent event) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent event) {
+
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent event) {
+
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent event) {
+
+            }
+
+            @Nullable
+            private Node getNodeUnderMouse(MouseEvent event) {
+                GraphicElement element = viewPanel.findNodeOrSpriteAt(event.getX(), event.getY());
+                return element == null ? null : gsGraph.getNode(element.getId());
+            }
+        });
     }
 
     @Nullable
@@ -215,12 +269,9 @@ public class CodeGraphToolWindow {
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
 
-        // GraphViz's node is rendered with its label inside, which takes redundant space and ruins layout.
-        // So I use a dummy empty label to make GraphViz create all nodes with the same smallest size.
-        Label dummyGraphVizNodeLabel = Label.of("");
         gsGraph.getNodeSet()
                 .forEach(node -> {
-                    MutableNode gvNode = mutNode(dummyGraphVizNodeLabel).setName(node.getId());
+                    MutableNode gvNode = mutNode(node.getId());
                     StreamSupport.stream(node.getEachLeavingEdge().spliterator(), false)
                             .forEach(edge -> gvNode.addLink(edge.getTargetNode().getId()));
                     gvGraph.add(gvNode);
