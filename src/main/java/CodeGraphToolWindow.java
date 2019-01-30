@@ -15,16 +15,13 @@ import guru.nidi.graphviz.model.MutableNode;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.MultiGraph;
-import org.graphstream.ui.graphicGraph.GraphicElement;
 import org.graphstream.ui.swingViewer.ViewPanel;
 import org.graphstream.ui.view.Viewer;
-import org.graphstream.ui.view.util.DefaultMouseManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -63,7 +60,7 @@ public class CodeGraphToolWindow {
         System.out.println("--- rendering graph ---");
         ViewPanel viewPanel = renderGraphOnCanvas(gsGraph);
         System.out.println("--- rendered ---");
-        attachEventListeners(viewPanel, gsGraph);
+        attachEventListeners(viewPanel);
         System.out.println("--- attached event listeners ---");
     }
 
@@ -195,52 +192,8 @@ public class CodeGraphToolWindow {
         return viewPanel;
     }
 
-    private void attachEventListeners(@NotNull ViewPanel viewPanel, @NotNull Graph gsGraph) {
-        viewPanel.setMouseManager(new DefaultMouseManager() {
-            @Override
-            public void mouseClicked(MouseEvent event) {
-                Node node = getNodeUnderMouse(event);
-                if (node != null) {
-                    System.out.println(String.format("clicked on node %s", node.getId()));
-                }
-            }
-
-            @Override
-            public void mousePressed(MouseEvent event) {
-
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent event) {
-
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent event) {
-
-            }
-
-            @Override
-            public void mouseExited(MouseEvent event) {
-
-            }
-
-            @Override
-            public void mouseDragged(MouseEvent event) {
-
-            }
-
-            @Override
-            public void mouseMoved(MouseEvent event) {
-
-            }
-
-            @Nullable
-            private Node getNodeUnderMouse(MouseEvent event) {
-                GraphicElement element = viewPanel.findNodeOrSpriteAt(event.getX(), event.getY());
-                return element == null ? null : gsGraph.getNode(element.getId());
-            }
-        });
+    private void attachEventListeners(@NotNull ViewPanel viewPanel) {
+        viewPanel.setMouseManager(new CodeGraphMouseEventHandler(canvasPanel));
     }
 
     @Nullable
