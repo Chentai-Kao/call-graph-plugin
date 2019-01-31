@@ -54,7 +54,8 @@ public class CodeGraphToolWindow {
         System.out.println("--- building graph ---");
         buildGraph(gsGraph, nodeIdToMethodMap, methodReferences);
         System.out.println("--- getting layout from GraphViz ---");
-        Map<String, AbstractMap.SimpleEntry<Integer, Integer>> nodeCoordinateMap = layoutByGraphViz(gsGraph);
+        Map<String, AbstractMap.SimpleEntry<Integer, Integer>> nodeCoordinateMap =
+                layoutByGraphViz(gsGraph, nodeIdToMethodMap);
         System.out.println("--- applying layout from GraphViz to set node position ---");
         applyGraphLayout(gsGraph, nodeCoordinateMap);
         System.out.println("--- rendering graph ---");
@@ -178,7 +179,7 @@ public class CodeGraphToolWindow {
             int x = coordinate.getKey();
             int y = coordinate.getValue();
             gsGraph.getNode(nodeId).setAttribute("xy", x, y);
-        });                System.out.println("dragged");
+        });
     }
 
     @NotNull
@@ -216,19 +217,24 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private Map<String, AbstractMap.SimpleEntry<Integer, Integer>> layoutByGraphViz(@NotNull Graph gsGraph) {
+    private Map<String, AbstractMap.SimpleEntry<Integer, Integer>> layoutByGraphViz(
+            @NotNull Graph gsGraph,
+            @NotNull Map<String, PsiMethod> nodeIdToMethodMap) {
         guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
                 .setDirected(true)
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
 
-        gsGraph.getNodeSet()
-                .forEach(node -> {
-                    MutableNode gvNode = mutNode(node.getId());
-                    StreamSupport.stream(node.getEachLeavingEdge().spliterator(), false)
-                            .forEach(edge -> gvNode.addLink(edge.getTargetNode().getId()));
-                    gvGraph.add(gvNode);
-                });
+        TreeSet<Node> sortedNodeSet = createSortedNodeSet(gsGraph.getNodeSet(), nodeIdToMethodMap);
+        sortedNodeSet.forEach(node -> {
+            MutableNode gvNode = mutNode(node.getId());
+            Set<Node> neighbors = StreamSupport.stream(node.getEachLeavingEdge().spliterator(), false)
+                    .map(edge -> (Node)edge.getTargetNode())
+                    .collect(Collectors.toSet());
+            TreeSet<Node> sortedNeighbors = createSortedNodeSet(neighbors, nodeIdToMethodMap);
+            sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
+            gvGraph.add(gvNode);
+        });
         String layoutBlueprint = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
 
         // parse the GraphViz layout as a mapping from "node name" to "x-y coordinate (percent of full graph size)"
@@ -253,6 +259,18 @@ public class CodeGraphToolWindow {
                             return new AbstractMap.SimpleEntry<>(x, y);
                         }
                 ));
+    }
+
+    @NotNull
+    private TreeSet<Node> createSortedNodeSet(@NotNull Collection<Node> nodes,
+                                              @NotNull Map<String, PsiMethod> nodeIdToMethodMap) {
+        TreeSet<Node> sortedNodeSet = new TreeSet<>((a, b) -> {
+            String aName = nodeIdToMethodMap.get(a.getId()).getName();
+            String bName = nodeIdToMethodMap.get(b.getId()).getName();
+            return aName.compareTo(bName);
+        });
+        sortedNodeSet.addAll(nodes);
+        return sortedNodeSet;
     }
 
     @NotNull
