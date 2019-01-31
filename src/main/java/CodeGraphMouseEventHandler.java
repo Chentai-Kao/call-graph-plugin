@@ -1,17 +1,38 @@
 import org.graphstream.graph.Node;
 import org.graphstream.ui.geom.Point3;
 import org.graphstream.ui.graphicGraph.GraphicElement;
-import org.graphstream.ui.view.util.DefaultMouseManager;
+import org.graphstream.ui.graphicGraph.GraphicGraph;
+import org.graphstream.ui.view.View;
+import org.graphstream.ui.view.util.MouseManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.*;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 
-public class CodeGraphMouseEventHandler extends DefaultMouseManager {
+public class CodeGraphMouseEventHandler implements MouseManager, MouseWheelListener {
+    private View view; // The view this manager operates upon.
+    private GraphicGraph graph; // The graph to modify according to the view actions.
     private Point3 lastMousePositionPx;
 
-    @Override
-    public void mouseClicked(MouseEvent event) {
+    // construction
+    public void init(@NotNull GraphicGraph graph, @NotNull View view) {
+        this.view = view;
+        this.graph = graph;
+        this.view.addMouseListener(this);
+        this.view.addMouseMotionListener(this);
+        ((Component) this.view).addMouseWheelListener(this);
+    }
+
+    // destruction
+    public void release() {
+        this.view.removeMouseListener(this);
+        this.view.removeMouseMotionListener(this);
+    }
+
+    public void mouseClicked(@NotNull MouseEvent event) {
         System.out.println("clicked");
         Node node = getNodeUnderMouse(event);
         if (node != null) {
@@ -19,29 +40,24 @@ public class CodeGraphMouseEventHandler extends DefaultMouseManager {
         }
     }
 
-    @Override
-    public void mousePressed(MouseEvent event) {
+    public void mousePressed(@NotNull MouseEvent event) {
         System.out.println("pressed");
-        lastMousePositionPx = new Point3(event.getX(), event.getY());
+        this.lastMousePositionPx = new Point3(event.getX(), event.getY());
     }
 
-    @Override
-    public void mouseReleased(MouseEvent event) {
+    public void mouseReleased(@NotNull MouseEvent event) {
         System.out.println("released");
     }
 
-    @Override
-    public void mouseEntered(MouseEvent event) {
+    public void mouseEntered(@NotNull MouseEvent event) {
         System.out.println("entered");
     }
 
-    @Override
-    public void mouseExited(MouseEvent event) {
+    public void mouseExited(@NotNull MouseEvent event) {
         System.out.println("exited");
     }
 
-    @Override
-    public void mouseDragged(MouseEvent event) {
+    public void mouseDragged(@NotNull MouseEvent event) {
         Point3 currentMousePositionPx = new Point3(event.getX(), event.getY());
         if (!currentMousePositionPx.equals(this.lastMousePositionPx)) {
             Point3 currentCameraCenterGu = this.view.getCamera().getViewCenter();
@@ -56,13 +72,32 @@ public class CodeGraphMouseEventHandler extends DefaultMouseManager {
         }
     }
 
-    @Override
-    public void mouseMoved(MouseEvent event) {
+    public void mouseMoved(@NotNull MouseEvent event) {
         System.out.println(String.format("moved %d %d", event.getX(), event.getY()));
     }
 
+    public void mouseWheelMoved(@NotNull MouseWheelEvent event) {
+        System.out.println(String.format("scrolled rotation %d", event.getWheelRotation()));
+
+        // zoom the camera
+        int scrollRotation = event.getWheelRotation(); // 1 if scroll down, -1 otherwise
+        double zoomFactor = Math.pow(1.25, scrollRotation);
+        double currentZoomRatio = this.view.getCamera().getViewPercent();
+        this.view.getCamera().setViewPercent(currentZoomRatio * zoomFactor);
+
+        // move the view to the mouse position
+        Point3 mousePositionPx = new Point3(event.getX(), event.getY());
+        Point3 mousePositionGu = pxToGu(mousePositionPx);
+        Point3 cameraCenterGu = this.view.getCamera().getViewCenter();
+        this.view.getCamera().setViewCenter(
+                zoomFactor * cameraCenterGu.x + (1 - zoomFactor) * mousePositionGu.x,
+                zoomFactor * cameraCenterGu.y + (1 - zoomFactor) * mousePositionGu.y,
+                0
+        );
+    }
+
     @Nullable
-    private Node getNodeUnderMouse(MouseEvent event) {
+    private Node getNodeUnderMouse(@NotNull MouseEvent event) {
         GraphicElement element = this.view.findNodeOrSpriteAt(event.getX(), event.getY());
         return element == null ? null : this.graph.getNode(element.getId());
     }
