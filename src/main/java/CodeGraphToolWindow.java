@@ -193,7 +193,7 @@ public class CodeGraphToolWindow {
     }
 
     private void attachEventListeners(@NotNull ViewPanel viewPanel) {
-        viewPanel.setMouseManager(new CodeGraphMouseEventHandler(canvasPanel));
+        viewPanel.setMouseManager(new CodeGraphMouseEventHandler());
     }
 
     @Nullable

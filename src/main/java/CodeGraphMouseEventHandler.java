@@ -5,18 +5,10 @@ import org.graphstream.ui.view.util.DefaultMouseManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
 import java.awt.event.MouseEvent;
 
 public class CodeGraphMouseEventHandler extends DefaultMouseManager {
-    private JPanel canvasPanel;
-    private Point3 preDragCameraCenter;
-    private Point3 preDragMousePosition;
-    private Point3 lastMousePosition;
-
-    CodeGraphMouseEventHandler(@NotNull JPanel canvasPanel) {
-        this.canvasPanel = canvasPanel;
-    }
+    private Point3 lastMousePositionPx;
 
     @Override
     public void mouseClicked(MouseEvent event) {
@@ -30,9 +22,7 @@ public class CodeGraphMouseEventHandler extends DefaultMouseManager {
     @Override
     public void mousePressed(MouseEvent event) {
         System.out.println("pressed");
-        preDragCameraCenter = guToPx(this.view.getCamera().getViewCenter());
-        preDragMousePosition = new Point3(event.getX(), event.getY());
-        lastMousePosition = null;
+        lastMousePositionPx = new Point3(event.getX(), event.getY());
     }
 
     @Override
@@ -52,26 +42,18 @@ public class CodeGraphMouseEventHandler extends DefaultMouseManager {
 
     @Override
     public void mouseDragged(MouseEvent event) {
-        this.view.getCamera().setAutoFitView(false);
-        Point3 currentMousePosition = new Point3(event.getX(), event.getY());
-        boolean isMouseMoved = lastMousePosition == null ||
-                (currentMousePosition.x != lastMousePosition.x || currentMousePosition.y != lastMousePosition.y);
-        if (isMouseMoved) {
-            System.out.println(String.format("dragged %d %d", event.getX(), event.getY()));
-            Point3 postDragCameraCenter = new Point3(
-                    preDragCameraCenter.x - currentMousePosition.x + preDragMousePosition.x,
-                    preDragCameraCenter.y - currentMousePosition.y + preDragMousePosition.y
+        Point3 currentMousePositionPx = new Point3(event.getX(), event.getY());
+        if (!currentMousePositionPx.equals(this.lastMousePositionPx)) {
+            Point3 currentCameraCenterGu = this.view.getCamera().getViewCenter();
+            Point3 currentMousePositionGu = pxToGu(currentMousePositionPx);
+            Point3 lastMousePositionGu = pxToGu(this.lastMousePositionPx);
+            this.view.getCamera().setViewCenter(
+                    currentCameraCenterGu.x - currentMousePositionGu.x + lastMousePositionGu.x,
+                    currentCameraCenterGu.y - currentMousePositionGu.y + lastMousePositionGu.y,
+                    0
             );
-            Point3 postDragCameraCenterGu = pxToGu(postDragCameraCenter);
-            this.view.getCamera().setViewCenter(postDragCameraCenterGu.x, postDragCameraCenterGu.y, 0);
-            System.out.println(String.format("mouse pre  %.2f %.2f", preDragMousePosition.x, preDragMousePosition.y));
-            System.out.println(String.format("mouse post %.2f %.2f", currentMousePosition.x, currentMousePosition.y));
-            System.out.println(String.format("center pre %.2f %.2f", preDragCameraCenter.x, preDragCameraCenter.y));
-            System.out.println(String.format("center new %.2f %.2f", postDragCameraCenter.x, postDragCameraCenter.y));
-            lastMousePosition = currentMousePosition;
+            this.lastMousePositionPx = currentMousePositionPx;
         }
-        canvasPanel.repaint();
-        canvasPanel.revalidate();
     }
 
     @Override
@@ -88,10 +70,5 @@ public class CodeGraphMouseEventHandler extends DefaultMouseManager {
     @NotNull
     private Point3 pxToGu(@NotNull Point3 point) {
         return this.view.getCamera().transformPxToGu(point.x, point.y);
-    }
-
-    @NotNull
-    private Point3 guToPx(@NotNull Point3 point) {
-        return this.view.getCamera().transformGuToPx(point.x, point.y, 0);
     }
 }
