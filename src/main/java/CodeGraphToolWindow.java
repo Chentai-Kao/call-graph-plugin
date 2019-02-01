@@ -45,16 +45,21 @@ public class CodeGraphToolWindow {
         if (project == null) {
             return;
         }
+        System.out.println("--- getting source code files ---");
         Set<PsiFile> sourceCodeFiles = getSourceCodeFiles(project);
         System.out.println(String.format("found %d files", sourceCodeFiles.size()));
-        Map<PsiMethod, Set<PsiReference>> methodReferences = getMethodReferences(sourceCodeFiles);
-        Map<String, PsiMethod> nodeIdToMethodMap = generateMethodNodeIds(methodReferences);
-        System.out.println(String.format("found %d methods", nodeIdToMethodMap.size()));
+        System.out.println("--- getting method references ---");
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMap(sourceCodeFiles);
+        System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
+                methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
+        System.out.println("--- generating method node ID ---");
+        Map<String, PsiMethod> nodeIdToMethodMap = generateMethodNodeIds(methodCallersMap);
+        System.out.println("--- creating graph ---");
         Graph gsGraph = createGraph();
         System.out.println("--- building graph ---");
-        buildGraph(gsGraph, nodeIdToMethodMap, methodReferences);
+        buildGraph(gsGraph, nodeIdToMethodMap, methodCallersMap);
         System.out.println("--- getting layout from GraphViz ---");
-        Map<String, AbstractMap.SimpleEntry<Integer, Integer>> nodeCoordinateMap =
+        Map<String, AbstractMap.SimpleEntry<Float, Float>> nodeCoordinateMap =
                 layoutByGraphViz(gsGraph, nodeIdToMethodMap);
         System.out.println("--- applying layout from GraphViz to set node position ---");
         applyGraphLayout(gsGraph, nodeCoordinateMap);
@@ -101,15 +106,21 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private Map<PsiMethod, Set<PsiReference>> getMethodReferences(Set<PsiFile> sourceCodeFiles) {
-        Set<PsiMethod> sourceCodeMethods = sourceCodeFiles.stream()
+    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMap(Set<PsiFile> sourceCodeFiles) {
+        Set<PsiMethod> allMethods = sourceCodeFiles.stream()
                 .flatMap(psiFile -> Arrays.stream(((PsiJavaFile)psiFile).getClasses())) // get all classes
                 .flatMap(psiClass -> Arrays.stream(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
-        return sourceCodeMethods.stream()
+        return allMethods.stream()
                 .collect(Collectors.toMap(
                         method -> method,
-                        method -> new HashSet<>(ReferencesSearch.search(method).findAll())
+                        method -> {
+                            Collection<PsiReference> references = ReferencesSearch.search(method).findAll();
+                            return references.stream()
+                                    .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
+                                    .filter(Objects::nonNull)
+                                    .collect(Collectors.toSet());
+                        }
                 ));
     }
 
@@ -139,15 +150,15 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private Map<String, PsiMethod> generateMethodNodeIds(@NotNull Map<PsiMethod, Set<PsiReference>> methodReferences) {
-        return methodReferences.keySet()
+    private Map<String, PsiMethod> generateMethodNodeIds(@NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
+        return methodCallersMap.keySet()
                 .stream()
                 .collect(Collectors.toMap(this::getNodeHash, method -> method));
     }
 
     private void buildGraph(@NotNull Graph gsGraph,
                             @NotNull Map<String, PsiMethod> nodeIdToMethodMap,
-                            @NotNull Map<PsiMethod, Set<PsiReference>> methodReferences) {
+                            @NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
         // add every method as a graph node
         nodeIdToMethodMap.forEach((nodeId, method) -> {
             Node node = gsGraph.addNode(nodeId);
@@ -155,29 +166,24 @@ public class CodeGraphToolWindow {
         });
 
         // add every reference as a graph edge
-        Set<PsiMethod> knownMethods = methodReferences.keySet();
-        methodReferences.forEach((callee, references) -> {
+        methodCallersMap.forEach((callee, callers) -> {
             String calleeId = getNodeHash(callee);
-            references.forEach(reference -> {
-                PsiElement callerElement = reference.getElement();
-                PsiMethod caller = getContainingKnownMethod(callerElement, knownMethods);
-                if (caller != null) {
-                    String callerId = getNodeHash(caller);
-                    String edgeId = getEdgeHash(callerId, calleeId);
-                    // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
-                    if (gsGraph.getEdge(edgeId) == null) {
-                        gsGraph.addEdge(edgeId, callerId, calleeId, true);
-                    }
+            callers.forEach(caller -> {
+                String callerId = getNodeHash(caller);
+                String edgeId = getEdgeHash(callerId, calleeId);
+                // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
+                if (gsGraph.getEdge(edgeId) == null) {
+                    gsGraph.addEdge(edgeId, callerId, calleeId, true);
                 }
             });
         });
     }
 
     private void applyGraphLayout(@NotNull Graph gsGraph,
-                                  @NotNull Map<String, AbstractMap.SimpleEntry<Integer, Integer>> nodeCoordinateMap) {
+                                  @NotNull Map<String, AbstractMap.SimpleEntry<Float, Float>> nodeCoordinateMap) {
         nodeCoordinateMap.forEach((nodeId, coordinate) -> {
-            int x = coordinate.getKey();
-            int y = coordinate.getValue();
+            float x = coordinate.getKey();
+            float y = coordinate.getValue();
             gsGraph.getNode(nodeId).setAttribute("xy", x, y);
         });
     }
@@ -217,7 +223,7 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private Map<String, AbstractMap.SimpleEntry<Integer, Integer>> layoutByGraphViz(
+    private Map<String, AbstractMap.SimpleEntry<Float, Float>> layoutByGraphViz(
             @NotNull Graph gsGraph,
             @NotNull Map<String, PsiMethod> nodeIdToMethodMap) {
         guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
@@ -247,15 +253,14 @@ public class CodeGraphToolWindow {
         String[] graphSizeParts = graphSizeLine.split(" ");
         float graphWidth = Float.parseFloat(graphSizeParts[2]);
         float graphHeight = Float.parseFloat(graphSizeParts[3]);
-        int graphScale = 100;
         return layoutLines.stream()
                 .filter(line -> line.startsWith("node"))
                 .map(line -> line.split(" "))
                 .collect(Collectors.toMap(
-                        parts -> parts[1],
-                        parts -> {
-                            int x = Math.round(graphScale * Float.parseFloat(parts[2]) / graphWidth);
-                            int y = Math.round(graphScale * Float.parseFloat(parts[3]) / graphHeight);
+                        parts -> parts[1], // node ID
+                        parts -> { // coordinate (x, y)
+                            float x = Float.parseFloat(parts[2]) / graphWidth;
+                            float y = Float.parseFloat(parts[3]) / graphHeight;
                             return new AbstractMap.SimpleEntry<>(x, y);
                         }
                 ));

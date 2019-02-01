@@ -33,28 +33,23 @@ public class CodeGraphMouseEventHandler implements MouseManager, MouseWheelListe
     }
 
     public void mouseClicked(@NotNull MouseEvent event) {
-        System.out.println("clicked");
         Node node = getNodeUnderMouse(event);
         if (node != null) {
-            System.out.println(String.format("clicked on node %s", node.getId()));
+            System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getAttribute("ui.label")));
         }
     }
 
     public void mousePressed(@NotNull MouseEvent event) {
-        System.out.println("pressed");
         this.lastMousePositionPx = new Point3(event.getX(), event.getY());
     }
 
     public void mouseReleased(@NotNull MouseEvent event) {
-        System.out.println("released");
     }
 
     public void mouseEntered(@NotNull MouseEvent event) {
-        System.out.println("entered");
     }
 
     public void mouseExited(@NotNull MouseEvent event) {
-        System.out.println("exited");
     }
 
     public void mouseDragged(@NotNull MouseEvent event) {
@@ -73,12 +68,9 @@ public class CodeGraphMouseEventHandler implements MouseManager, MouseWheelListe
     }
 
     public void mouseMoved(@NotNull MouseEvent event) {
-        System.out.println(String.format("moved %d %d", event.getX(), event.getY()));
     }
 
     public void mouseWheelMoved(@NotNull MouseWheelEvent event) {
-        System.out.println(String.format("scrolled rotation %d", event.getWheelRotation()));
-
         // zoom the camera
         int scrollRotation = event.getWheelRotation(); // 1 if scroll down, -1 otherwise
         double zoomFactor = Math.pow(1.25, scrollRotation);
