@@ -2,34 +2,31 @@ import org.graphstream.graph.Node;
 import org.graphstream.ui.geom.Point3;
 import org.graphstream.ui.graphicGraph.GraphicElement;
 import org.graphstream.ui.graphicGraph.GraphicGraph;
+import org.graphstream.ui.swing_viewer.ViewPanel;
+import org.graphstream.ui.swing_viewer.util.DefaultMouseManager;
 import org.graphstream.ui.view.View;
-import org.graphstream.ui.view.util.MouseManager;
+import org.graphstream.ui.view.util.InteractiveElement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.util.EnumSet;
 
-public class CodeGraphMouseEventHandler implements MouseManager, MouseWheelListener {
-    private View view; // The view this manager operates upon.
-    private GraphicGraph graph; // The graph to modify according to the view actions.
+public class CodeGraphMouseEventHandler extends DefaultMouseManager implements MouseWheelListener {
     private Point3 lastMousePositionPx;
 
     // construction
     public void init(@NotNull GraphicGraph graph, @NotNull View view) {
-        this.view = view;
-        this.graph = graph;
-        this.view.addMouseListener(this);
-        this.view.addMouseMotionListener(this);
-        ((Component) this.view).addMouseWheelListener(this);
+        super.init(graph, view);
+        ((ViewPanel) this.view).addMouseWheelListener(this);
     }
 
     // destruction
     public void release() {
-        this.view.removeMouseListener(this);
-        this.view.removeMouseMotionListener(this);
+        super.release();
+        ((ViewPanel) this.view).removeMouseWheelListener(this);
     }
 
     public void mouseClicked(@NotNull MouseEvent event) {
@@ -90,7 +87,8 @@ public class CodeGraphMouseEventHandler implements MouseManager, MouseWheelListe
 
     @Nullable
     private Node getNodeUnderMouse(@NotNull MouseEvent event) {
-        GraphicElement element = this.view.findNodeOrSpriteAt(event.getX(), event.getY());
+        GraphicElement element =
+                this.view.findGraphicElementAt(EnumSet.of(InteractiveElement.NODE), event.getX(), event.getY());
         return element == null ? null : this.graph.getNode(element.getId());
     }
 

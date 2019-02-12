@@ -12,10 +12,12 @@ import guru.nidi.graphviz.attribute.RankDir;
 import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
 import guru.nidi.graphviz.model.MutableNode;
+import org.graphstream.graph.Edge;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.MultiGraph;
-import org.graphstream.ui.swingViewer.ViewPanel;
+import org.graphstream.ui.swing_viewer.SwingViewer;
+import org.graphstream.ui.swing_viewer.ViewPanel;
 import org.graphstream.ui.view.Viewer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +27,7 @@ import java.awt.*;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.mutNode;
@@ -68,6 +70,7 @@ public class CodeGraphToolWindow {
         System.out.println("--- rendered ---");
         attachEventListeners(viewPanel);
         System.out.println("--- attached event listeners ---");
+        gsGraph.edges().forEach(edge -> System.out.println(edge.getId()));
     }
 
     @Nullable
@@ -127,17 +130,18 @@ public class CodeGraphToolWindow {
     @NotNull
     private Graph createGraph() {
         // set system to use gs-ui renderer, which is better than the default one
-        //noinspection SpellCheckingInspection
-        System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
+        System.setProperty("org.graphstream.ui", "swing");
+//        System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
+//        System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.swing.SwingGraphRenderer");
 
         // create graph
-        Graph gsGraph = new MultiGraph("embedded");
-        gsGraph.addAttribute("ui.quality");
-        gsGraph.addAttribute("ui.antialias");
+        Graph gsGraph = new MultiGraph("embedded", false, true);
+        gsGraph.setAttribute("ui.quality");
+        gsGraph.setAttribute("ui.antialias");
 
         // set up graph styling
         // GraphStream CSS doc: http://graphstream-project.org/doc/Advanced-Concepts/GraphStream-CSS-Reference/
-        gsGraph.addAttribute("ui.stylesheet",
+        gsGraph.setAttribute("ui.stylesheet",
                 "" +
                         "node {" +
                         "  fill-color: #aaa;" +
@@ -168,13 +172,13 @@ public class CodeGraphToolWindow {
         // add every reference as a graph edge
         methodCallersMap.forEach((callee, callers) -> {
             String calleeId = getNodeHash(callee);
-            callers.forEach(caller -> {
-                String callerId = getNodeHash(caller);
+            // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
+            Set<String> uniqueCallerIds = callers.stream()
+                    .map(this::getNodeHash)
+                    .collect(Collectors.toSet());
+            uniqueCallerIds.forEach(callerId -> {
                 String edgeId = getEdgeHash(callerId, calleeId);
-                // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
-                if (gsGraph.getEdge(edgeId) == null) {
-                    gsGraph.addEdge(edgeId, callerId, calleeId, true);
-                }
+                gsGraph.addEdge(edgeId, callerId, calleeId, true);
             });
         });
     }
@@ -190,9 +194,9 @@ public class CodeGraphToolWindow {
 
     @NotNull
     private ViewPanel renderGraphOnCanvas(@NotNull Graph gsGraph) {
-        Viewer viewer = new Viewer(gsGraph, Viewer.ThreadingModel.GRAPH_IN_GUI_THREAD);
+        Viewer viewer = new SwingViewer(gsGraph, Viewer.ThreadingModel.GRAPH_IN_GUI_THREAD);
         viewer.disableAutoLayout();
-        ViewPanel viewPanel = viewer.addDefaultView(false); // false indicates "no JFrame" (no window)
+        ViewPanel viewPanel = (ViewPanel)viewer.addDefaultView(false); // false is "no JFrame" (no window)
         canvasPanel.removeAll();
         canvasPanel.add(viewPanel);
         canvasPanel.updateUI();
@@ -231,12 +235,11 @@ public class CodeGraphToolWindow {
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
 
-        TreeSet<Node> sortedNodeSet = createSortedNodeSet(gsGraph.getNodeSet(), nodeIdToMethodMap);
+        TreeSet<Node> sortedNodeSet = createSortedNodeSet(gsGraph.nodes(), nodeIdToMethodMap);
         sortedNodeSet.forEach(node -> {
             MutableNode gvNode = mutNode(node.getId());
-            Set<Node> neighbors = StreamSupport.stream(node.getEachLeavingEdge().spliterator(), false)
-                    .map(edge -> (Node)edge.getTargetNode())
-                    .collect(Collectors.toSet());
+            Stream<Node> neighbors = node.leavingEdges()
+                    .map(Edge::getTargetNode);
             TreeSet<Node> sortedNeighbors = createSortedNodeSet(neighbors, nodeIdToMethodMap);
             sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
             gvGraph.add(gvNode);
@@ -267,15 +270,14 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private TreeSet<Node> createSortedNodeSet(@NotNull Collection<Node> nodes,
+    private TreeSet<Node> createSortedNodeSet(@NotNull Stream<Node> nodes,
                                               @NotNull Map<String, PsiMethod> nodeIdToMethodMap) {
-        TreeSet<Node> sortedNodeSet = new TreeSet<>((a, b) -> {
+        Comparator<Node> comparator = (a, b) -> {
             String aName = nodeIdToMethodMap.get(a.getId()).getName();
             String bName = nodeIdToMethodMap.get(b.getId()).getName();
             return aName.compareTo(bName);
-        });
-        sortedNodeSet.addAll(nodes);
-        return sortedNodeSet;
+        };
+        return nodes.collect(Collectors.toCollection(() -> new TreeSet<>(comparator)));
     }
 
     @NotNull
