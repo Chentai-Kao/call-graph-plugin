@@ -31,7 +31,7 @@ public class CodeGraphToolWindow {
     private JPanel canvasPanel;
 
     public CodeGraphToolWindow() {
-        runButton.addActionListener(e -> run());
+        this.runButton.addActionListener(e -> run());
     }
 
     public void run() {
@@ -51,9 +51,9 @@ public class CodeGraphToolWindow {
         System.out.println("--- getting layout from GraphViz ---");
         layoutByGraphViz(graph);
         System.out.println("--- rendering graph ---");
-        JPanel viewPanel = renderGraphOnCanvas(graph);
+        Canvas canvas = renderGraphOnCanvas(graph);
         System.out.println("--- rendered ---");
-        attachEventListeners(viewPanel);
+        attachEventListeners(canvas);
         System.out.println("--- attached event listeners ---");
         graph.getNodes().forEach(node -> System.out.printf("node [%s] %s (%.2f, %.2f)\n",
                 node.getId(), node.getMethod().getName(), node.getX(), node.getY()));
@@ -128,13 +128,14 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private JPanel renderGraphOnCanvas(@NotNull Graph graph) {
-        // TODO pass graph in and render edges on canvas
-        JPanel viewPanel = new Canvas();
-        canvasPanel.removeAll();
-        canvasPanel.add(viewPanel);
-        canvasPanel.updateUI();
-        return viewPanel;
+    private Canvas renderGraphOnCanvas(@NotNull Graph graph) {
+        Canvas canvas = new Canvas()
+                .setGraph(graph)
+                .setCanvasPanel(this.canvasPanel);
+        this.canvasPanel.removeAll();
+        this.canvasPanel.add(canvas);
+        this.canvasPanel.updateUI();
+        return canvas;
     }
 
     private void attachEventListeners(@NotNull JPanel viewPanel) {
@@ -200,6 +201,6 @@ public class CodeGraphToolWindow {
 
     @NotNull
     public JPanel getContent() {
-        return codeGraphToolWindowContent;
+        return this.codeGraphToolWindowContent;
     }
 }
