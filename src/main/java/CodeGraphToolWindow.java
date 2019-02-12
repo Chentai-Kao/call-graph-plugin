@@ -12,13 +12,6 @@ import guru.nidi.graphviz.attribute.RankDir;
 import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
 import guru.nidi.graphviz.model.MutableNode;
-import org.graphstream.graph.Edge;
-import org.graphstream.graph.Graph;
-import org.graphstream.graph.Node;
-import org.graphstream.graph.implementations.MultiGraph;
-import org.graphstream.ui.swing_viewer.SwingViewer;
-import org.graphstream.ui.swing_viewer.ViewPanel;
-import org.graphstream.ui.view.Viewer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,7 +20,6 @@ import java.awt.*;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.mutNode;
@@ -54,23 +46,19 @@ public class CodeGraphToolWindow {
         Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMap(sourceCodeFiles);
         System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
                 methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
-        System.out.println("--- generating method node ID ---");
-        Map<String, PsiMethod> nodeIdToMethodMap = generateMethodNodeIds(methodCallersMap);
-        System.out.println("--- creating graph ---");
-        Graph gsGraph = createGraph();
         System.out.println("--- building graph ---");
-        buildGraph(gsGraph, nodeIdToMethodMap, methodCallersMap);
+        Graph graph = buildGraph(methodCallersMap);
         System.out.println("--- getting layout from GraphViz ---");
-        Map<String, AbstractMap.SimpleEntry<Float, Float>> nodeCoordinateMap =
-                layoutByGraphViz(gsGraph, nodeIdToMethodMap);
-        System.out.println("--- applying layout from GraphViz to set node position ---");
-        applyGraphLayout(gsGraph, nodeCoordinateMap);
+        layoutByGraphViz(graph);
         System.out.println("--- rendering graph ---");
-        ViewPanel viewPanel = renderGraphOnCanvas(gsGraph);
+        JPanel viewPanel = renderGraphOnCanvas(graph);
         System.out.println("--- rendered ---");
         attachEventListeners(viewPanel);
         System.out.println("--- attached event listeners ---");
-        gsGraph.edges().forEach(edge -> System.out.println(edge.getId()));
+        graph.getNodes().forEach(node -> System.out.printf("node [%s] %s (%.2f, %.2f)\n",
+                node.getId(), node.getMethod().getName(), node.getX(), node.getY()));
+        graph.getEdges().forEach(edge -> System.out.printf("edge [%s] %s -> %s\n",
+                edge.getId(), edge.getSourceNode().getMethod().getName(), edge.getTargetNode().getMethod().getName()));
     }
 
     @Nullable
@@ -127,84 +115,31 @@ public class CodeGraphToolWindow {
                 ));
     }
 
-    @NotNull
-    private Graph createGraph() {
-        // set system to use gs-ui renderer, which is better than the default one
-        System.setProperty("org.graphstream.ui", "swing");
-//        System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
-//        System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.swing.SwingGraphRenderer");
-
-        // create graph
-        Graph gsGraph = new MultiGraph("embedded", false, true);
-        gsGraph.setAttribute("ui.quality");
-        gsGraph.setAttribute("ui.antialias");
-
-        // set up graph styling
-        // GraphStream CSS doc: http://graphstream-project.org/doc/Advanced-Concepts/GraphStream-CSS-Reference/
-        gsGraph.setAttribute("ui.stylesheet",
-                "" +
-                        "node {" +
-                        "  fill-color: #aaa;" +
-                        "  text-offset: 10, 10;" +
-                        "  text-color: #33f;" +
-                        "  text-alignment: at-right;" +
-                        "}"
-        );
-        return gsGraph;
-    }
-
-    @NotNull
-    private Map<String, PsiMethod> generateMethodNodeIds(@NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
-        return methodCallersMap.keySet()
-                .stream()
-                .collect(Collectors.toMap(this::getNodeHash, method -> method));
-    }
-
-    private void buildGraph(@NotNull Graph gsGraph,
-                            @NotNull Map<String, PsiMethod> nodeIdToMethodMap,
-                            @NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
-        // add every method as a graph node
-        nodeIdToMethodMap.forEach((nodeId, method) -> {
-            Node node = gsGraph.addNode(nodeId);
-            node.setAttribute("ui.label", method.getName());
-        });
-
-        // add every reference as a graph edge
+    private Graph buildGraph(@NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
+        Graph graph = new Graph();
         methodCallersMap.forEach((callee, callers) -> {
-            String calleeId = getNodeHash(callee);
-            // avoid adding duplicated edge (may happen if multiple calls exist from method 1 -> method 2)
-            Set<String> uniqueCallerIds = callers.stream()
-                    .map(this::getNodeHash)
-                    .collect(Collectors.toSet());
-            uniqueCallerIds.forEach(callerId -> {
-                String edgeId = getEdgeHash(callerId, calleeId);
-                gsGraph.addEdge(edgeId, callerId, calleeId, true);
+            graph.addNode(callee);
+            callers.forEach(caller -> {
+                graph.addNode(caller);
+                graph.addEdge(caller, callee);
             });
         });
-    }
-
-    private void applyGraphLayout(@NotNull Graph gsGraph,
-                                  @NotNull Map<String, AbstractMap.SimpleEntry<Float, Float>> nodeCoordinateMap) {
-        nodeCoordinateMap.forEach((nodeId, coordinate) -> {
-            float x = coordinate.getKey();
-            float y = coordinate.getValue();
-            gsGraph.getNode(nodeId).setAttribute("xy", x, y);
-        });
+        return graph;
     }
 
     @NotNull
-    private ViewPanel renderGraphOnCanvas(@NotNull Graph gsGraph) {
-        Viewer viewer = new SwingViewer(gsGraph, Viewer.ThreadingModel.GRAPH_IN_GUI_THREAD);
-        viewer.disableAutoLayout();
-        ViewPanel viewPanel = (ViewPanel)viewer.addDefaultView(false); // false is "no JFrame" (no window)
+    private JPanel renderGraphOnCanvas(@NotNull Graph graph) {
+        // TODO pass graph in and render edges on canvas
+        JPanel viewPanel = new Canvas();
         canvasPanel.removeAll();
         canvasPanel.add(viewPanel);
         canvasPanel.updateUI();
         return viewPanel;
     }
 
-    private void attachEventListeners(@NotNull ViewPanel viewPanel) {
-        viewPanel.setMouseManager(new CodeGraphMouseEventHandler());
+    private void attachEventListeners(@NotNull JPanel viewPanel) {
+        // TODO
+//        viewPanel.setMouseManager(new MouseEventHandler());
     }
 
     @Nullable
@@ -216,31 +151,21 @@ public class CodeGraphToolWindow {
         return knownMethods.contains(parent) ? parent : getContainingKnownMethod(parent, knownMethods);
     }
 
-    @NotNull
-    private String getNodeHash(@NotNull PsiElement element) {
-        return Integer.toString(element.hashCode());
-    }
-
-    @NotNull
-    private String getEdgeHash(@NotNull String nodeId1, @NotNull String nodeId2) {
-        return String.format("%s-%s", nodeId1, nodeId2);
-    }
-
-    @NotNull
-    private Map<String, AbstractMap.SimpleEntry<Float, Float>> layoutByGraphViz(
-            @NotNull Graph gsGraph,
-            @NotNull Map<String, PsiMethod> nodeIdToMethodMap) {
+    private void layoutByGraphViz(@NotNull Graph graph) {
         guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
                 .setDirected(true)
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
 
-        TreeSet<Node> sortedNodeSet = createSortedNodeSet(gsGraph.nodes(), nodeIdToMethodMap);
+        TreeSet<Node> sortedNodeSet = createSortedNodeSet(graph.getNodes());
         sortedNodeSet.forEach(node -> {
             MutableNode gvNode = mutNode(node.getId());
-            Stream<Node> neighbors = node.leavingEdges()
-                    .map(Edge::getTargetNode);
-            TreeSet<Node> sortedNeighbors = createSortedNodeSet(neighbors, nodeIdToMethodMap);
+            Collection<Node> neighbors = node.getLeavingEdges()
+                    .values()
+                    .stream()
+                    .map(Edge::getTargetNode)
+                    .collect(Collectors.toSet());
+            TreeSet<Node> sortedNeighbors = createSortedNodeSet(neighbors);
             sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
             gvGraph.add(gvNode);
         });
@@ -256,28 +181,21 @@ public class CodeGraphToolWindow {
         String[] graphSizeParts = graphSizeLine.split(" ");
         float graphWidth = Float.parseFloat(graphSizeParts[2]);
         float graphHeight = Float.parseFloat(graphSizeParts[3]);
-        return layoutLines.stream()
+        layoutLines.stream()
                 .filter(line -> line.startsWith("node"))
                 .map(line -> line.split(" "))
-                .collect(Collectors.toMap(
-                        parts -> parts[1], // node ID
-                        parts -> { // coordinate (x, y)
-                            float x = Float.parseFloat(parts[2]) / graphWidth;
-                            float y = Float.parseFloat(parts[3]) / graphHeight;
-                            return new AbstractMap.SimpleEntry<>(x, y);
-                        }
-                ));
+                .forEach(parts -> {
+                    String nodeId = parts[1];
+                    float x = Float.parseFloat(parts[2]) / graphWidth;
+                    float y = Float.parseFloat(parts[3]) / graphHeight;
+                    graph.getNode(nodeId).setCoordinate(x, y);
+                });
     }
 
     @NotNull
-    private TreeSet<Node> createSortedNodeSet(@NotNull Stream<Node> nodes,
-                                              @NotNull Map<String, PsiMethod> nodeIdToMethodMap) {
-        Comparator<Node> comparator = (a, b) -> {
-            String aName = nodeIdToMethodMap.get(a.getId()).getName();
-            String bName = nodeIdToMethodMap.get(b.getId()).getName();
-            return aName.compareTo(bName);
-        };
-        return nodes.collect(Collectors.toCollection(() -> new TreeSet<>(comparator)));
+    private TreeSet<Node> createSortedNodeSet(@NotNull Collection<Node> nodes) {
+        Comparator<Node> comparator = Comparator.comparing(node -> node.getMethod().getName());
+        return nodes.stream().collect(Collectors.toCollection(() -> new TreeSet<>(comparator)));
     }
 
     @NotNull
