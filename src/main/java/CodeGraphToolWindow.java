@@ -139,8 +139,10 @@ public class CodeGraphToolWindow {
     }
 
     private void attachEventListeners(@NotNull JPanel viewPanel) {
-        // TODO
-//        viewPanel.setMouseManager(new MouseEventHandler());
+        MouseEventHandler mouseEventHandler = new MouseEventHandler();
+        viewPanel.addMouseListener(mouseEventHandler);
+        viewPanel.addMouseMotionListener(mouseEventHandler);
+        viewPanel.addMouseWheelListener(mouseEventHandler);
     }
 
     @Nullable

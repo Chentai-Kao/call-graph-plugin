@@ -48,4 +48,9 @@ class Node {
     String getId() {
         return this.id;
     }
+
+    @NotNull
+    String getLabel() {
+        return this.method.getName();
+    }
 }

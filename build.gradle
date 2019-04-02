@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'org.jetbrains.intellij' version '0.4.1'
+    id 'org.openjfx.javafxplugin' version '0.0.7'
 }
 
 group 'com.jetbrains'
@@ -19,11 +20,15 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
+javafx {
+    modules = [ 'javafx.controls' ]
+}
+
 apply plugin: 'idea'
 apply plugin: 'org.jetbrains.intellij'
 
 intellij {
-    version '2018.3.3' // Intellij version to build against
+    version '2018.3.5' // Intellij version to build against
     pluginName 'idear'
     intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
 }
