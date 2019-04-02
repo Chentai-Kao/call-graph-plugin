@@ -1,100 +1,70 @@
-import javafx.geometry.Point2D;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.awt.event.*;
-import java.util.EnumSet;
+import java.awt.geom.Point2D;
 
 public class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
-    private Point2D lastMousePositionPx;
+    private Canvas canvas;
+    private Point2D lastMousePosition;
 
     // construction
-//    public void init(@NotNull GraphicGraph graph, @NotNull View view) {
-//        super.init(graph, view);
-//        ((ViewPanel) this.view).addMouseWheelListener(this);
-//    }
-
-    // destruction
-//    public void release() {
-//        super.release();
-//        ((ViewPanel) this.view).removeMouseWheelListener(this);
-//    }
+    void init(@NotNull Canvas canvas) {
+        this.canvas = canvas;
+    }
 
     public void mouseClicked(@NotNull MouseEvent event) {
-        System.out.println("clicked");
-        Node node = getNodeUnderMouse(event);
+        Node node = this.canvas.getNodeUnderPoint(event.getPoint());
         if (node != null) {
             System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getLabel()));
         }
     }
 
     public void mousePressed(@NotNull MouseEvent event) {
-        System.out.println("pressed");
-        this.lastMousePositionPx = new Point2D(event.getX(), event.getY());
+        this.lastMousePosition = new Point2D.Float(event.getX(), event.getY());
     }
 
     public void mouseReleased(@NotNull MouseEvent event) {
-        System.out.println("released");
     }
 
     public void mouseEntered(@NotNull MouseEvent event) {
-        System.out.println("entered");
     }
 
     public void mouseExited(@NotNull MouseEvent event) {
-        System.out.println("exited");
     }
 
     public void mouseDragged(@NotNull MouseEvent event) {
-        System.out.println("dragged");
-//        Point2D currentMousePositionPx = new Point2D(event.getX(), event.getY());
-//        if (!currentMousePositionPx.equals(this.lastMousePositionPx)) {
-//            Point2D currentCameraCenterGu = this.view.getCamera().getViewCenter();
-//            Point2D currentMousePositionGu = pxToGu(currentMousePositionPx);
-//            Point2D lastMousePositionGu = pxToGu(this.lastMousePositionPx);
-//            this.view.getCamera().setViewCenter(
-//                    currentCameraCenterGu.getX() - currentMousePositionGu.getX() + lastMousePositionGu.getX(),
-//                    currentCameraCenterGu.getY() - currentMousePositionGu.getY() + lastMousePositionGu.getY(),
-//                    0
-//            );
-//            this.lastMousePositionPx = currentMousePositionPx;
-//        }
+        Point2D.Float currentMousePosition = new Point2D.Float(event.getX(), event.getY());
+        if (!currentMousePosition.equals(this.lastMousePosition)) {
+            Point2D currentCameraCenter = this.canvas.getCameraCenter();
+            Point2D newCameraCenter = new Point2D.Float(
+                    (float) (currentCameraCenter.getX() - currentMousePosition.getX() + this.lastMousePosition.getX()),
+                    (float) (currentCameraCenter.getY() - currentMousePosition.getY() + this.lastMousePosition.getY())
+            );
+            this.canvas
+                    .setCameraCenter(newCameraCenter)
+                    .repaint();
+            this.lastMousePosition = currentMousePosition;
+        }
     }
 
     public void mouseMoved(@NotNull MouseEvent event) {
-        System.out.println("moved");
     }
 
     public void mouseWheelMoved(@NotNull MouseWheelEvent event) {
-        System.out.println("wheel moved");
-//        // zoom the camera
-//        int scrollRotation = event.getWheelRotation(); // 1 if scroll down, -1 otherwise
-//        double zoomFactor = Math.pow(1.25, scrollRotation);
-//        double currentZoomRatio = this.view.getCamera().getViewPercent();
-//        this.view.getCamera().setViewPercent(currentZoomRatio * zoomFactor);
-//
-//        // move the view to the mouse position
-//        Point2D mousePositionPx = new Point2D(event.getX(), event.getY());
-//        Point2D mousePositionGu = pxToGu(mousePositionPx);
-//        Point2D cameraCenterGu = this.view.getCamera().getViewCenter();
-//        this.view.getCamera().setViewCenter(
-//                zoomFactor * cameraCenterGu.getX() + (1 - zoomFactor) * mousePositionGu.getX(),
-//                zoomFactor * cameraCenterGu.getY() + (1 - zoomFactor) * mousePositionGu.getY(),
-//                0
-//        );
-    }
-
-    @Nullable
-    private Node getNodeUnderMouse(@NotNull MouseEvent event) {
-//        GraphicElement element =
-//                this.view.findGraphicElementAt(EnumSet.of(InteractiveElement.NODE), event.getX(), event.getY());
-//        return element == null ? null : this.graph.getNode(element.getId());
-        return null;
-    }
-
-    @NotNull
-    private Point2D pxToGu(@NotNull Point2D point) {
-//        return this.view.getCamera().transformPxToGu(point.getX(), point.getY());
-        return new Point2D(0, 0);
+        // zoom the camera
+        int scrollRotation = event.getWheelRotation(); // 1 if scroll down, -1 otherwise
+        float zoomFactor = (float) Math.pow(1.25, -scrollRotation);
+        float currentZoomRatio = this.canvas.getZoomRatio();
+        this.canvas.setZoomRatio(currentZoomRatio * zoomFactor);
+        // move the view to the mouse position
+        Point2D mousePosition = new Point2D.Float(event.getX(), event.getY());
+        Point2D cameraCenter = this.canvas.getCameraCenter();
+        Point2D newCameraCenter = new Point2D.Float(
+                (float) (zoomFactor * cameraCenter.getX() + (zoomFactor - 1) * mousePosition.getX()),
+                (float) (zoomFactor * cameraCenter.getY() + (zoomFactor - 1) * mousePosition.getY())
+        );
+        this.canvas.setCameraCenter(newCameraCenter);
+        // repaint
+        this.canvas.repaint();
     }
 }
