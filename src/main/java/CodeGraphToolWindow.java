@@ -52,13 +52,8 @@ public class CodeGraphToolWindow {
         layoutByGraphViz(graph);
         System.out.println("--- rendering graph ---");
         Canvas canvas = renderGraphOnCanvas(graph);
-        System.out.println("--- rendered ---");
+        System.out.println("--- attaching event listeners ---");
         attachEventListeners(canvas);
-        System.out.println("--- attached event listeners ---");
-        graph.getNodes().forEach(node -> System.out.printf("node [%s] %s (%.2f, %.2f)\n",
-                node.getId(), node.getMethod().getName(), node.getX(), node.getY()));
-        graph.getEdges().forEach(edge -> System.out.printf("edge [%s] %s -> %s\n",
-                edge.getId(), edge.getSourceNode().getMethod().getName(), edge.getTargetNode().getMethod().getName()));
     }
 
     @Nullable

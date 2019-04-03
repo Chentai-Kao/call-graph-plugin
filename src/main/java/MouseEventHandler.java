@@ -55,7 +55,7 @@ public class MouseEventHandler implements MouseListener, MouseMotionListener, Mo
         int scrollRotation = event.getWheelRotation(); // 1 if scroll down, -1 otherwise
         float zoomFactor = (float) Math.pow(1.25, -scrollRotation);
         float currentZoomRatio = this.canvas.getZoomRatio();
-        this.canvas.setZoomRatio(currentZoomRatio * zoomFactor);
+        float newZoomRatio = currentZoomRatio * zoomFactor;
         // move the view to the mouse position
         Point2D mousePosition = new Point2D.Float(event.getX(), event.getY());
         Point2D cameraCenter = this.canvas.getCameraCenter();
@@ -63,8 +63,9 @@ public class MouseEventHandler implements MouseListener, MouseMotionListener, Mo
                 (float) (zoomFactor * cameraCenter.getX() + (zoomFactor - 1) * mousePosition.getX()),
                 (float) (zoomFactor * cameraCenter.getY() + (zoomFactor - 1) * mousePosition.getY())
         );
-        this.canvas.setCameraCenter(newCameraCenter);
         // repaint
-        this.canvas.repaint();
+        this.canvas.setZoomRatio(newZoomRatio)
+                .setCameraCenter(newCameraCenter)
+                .repaint();
     }
 }
