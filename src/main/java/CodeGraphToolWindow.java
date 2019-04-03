@@ -156,15 +156,15 @@ public class CodeGraphToolWindow {
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
 
-        TreeSet<Node> sortedNodeSet = createSortedNodeSet(graph.getNodes());
-        sortedNodeSet.forEach(node -> {
+        Collection<Node> sortedNodes = getSortedNodes(graph.getNodes());
+        sortedNodes.forEach(node -> {
             MutableNode gvNode = mutNode(node.getId());
             Collection<Node> neighbors = node.getLeavingEdges()
                     .values()
                     .stream()
                     .map(Edge::getTargetNode)
                     .collect(Collectors.toSet());
-            TreeSet<Node> sortedNeighbors = createSortedNodeSet(neighbors);
+            Collection<Node> sortedNeighbors = getSortedNodes(neighbors);
             sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
             gvGraph.add(gvNode);
         });
@@ -192,9 +192,10 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
-    private TreeSet<Node> createSortedNodeSet(@NotNull Collection<Node> nodes) {
-        Comparator<Node> comparator = Comparator.comparing(node -> node.getMethod().getName());
-        return nodes.stream().collect(Collectors.toCollection(() -> new TreeSet<>(comparator)));
+    private Collection<Node> getSortedNodes(@NotNull Collection<Node> nodes) {
+        List<Node> sortedNodes = new ArrayList<>(nodes);
+        sortedNodes.sort(Comparator.comparing(node -> node.getMethod().getName()));
+        return sortedNodes;
     }
 
     @NotNull
