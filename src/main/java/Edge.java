@@ -1,9 +1,9 @@
 import org.jetbrains.annotations.NotNull;
 
 class Edge {
-    private String id;
-    private Node sourceNode;
-    private Node targetNode;
+    private final String id;
+    private final Node sourceNode;
+    private final Node targetNode;
 
     Edge(@NotNull String edgeId, @NotNull Node sourceNode, @NotNull Node targetNode) {
         this.id = edgeId;

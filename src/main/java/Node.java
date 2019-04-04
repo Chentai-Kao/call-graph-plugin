@@ -4,9 +4,9 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 class Node {
-    private String id;
-    private PsiMethod method;
-    private Map<String, Edge> leavingEdges = new HashMap<>();
+    private final String id;
+    private final PsiMethod method;
+    private final Map<String, Edge> leavingEdges = new HashMap<>();
     private float x;
     private float y;
 

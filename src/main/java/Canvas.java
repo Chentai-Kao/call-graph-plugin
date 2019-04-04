@@ -17,10 +17,10 @@ class Canvas extends JPanel {
     private Map<Ellipse2D, Node> nodeShapesMap;
     private Point2D cameraCenter = new Point2D.Float(0, 0);
     private float zoomRatio = 1.0f;
-    private int nodeRadius = 10;
-    private int nodeDiameter = 2 * nodeRadius;
-    private Stroke solidLineStroke = new BasicStroke(0.1f);
-    private Stroke dashedLineStroke = new BasicStroke(
+    private final int nodeRadius = 10;
+    private final int nodeDiameter = 2 * nodeRadius;
+    private final Stroke solidLineStroke = new BasicStroke(0.1f);
+    private final Stroke dashedLineStroke = new BasicStroke(
             0.1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 10.0f, new float[] { 5.0f }, 0.0f);
 
     @NotNull

@@ -3,7 +3,7 @@ import org.jetbrains.annotations.NotNull;
 import java.awt.event.*;
 import java.awt.geom.Point2D;
 
-public class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
+class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
     private Canvas canvas;
     private Point2D lastMousePosition;
 

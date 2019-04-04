@@ -7,8 +7,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 class Graph {
-    private Map<String, Node> nodes = new HashMap<>();
-    private Map<String, Edge> edges = new HashMap<>();
+    private final Map<String, Node> nodes = new HashMap<>();
+    private final Map<String, Edge> edges = new HashMap<>();
 
     void addNode(@NotNull PsiMethod method) {
         String nodeId = getNodeHash(method);

@@ -4,7 +4,9 @@ import com.intellij.openapi.module.impl.scopes.ModulesScope;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.roots.ContentIterator;
+import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.ProjectRootManager;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.WindowManager;
@@ -26,6 +28,7 @@ import java.awt.*;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.mutNode;
@@ -47,6 +50,7 @@ public class CodeGraphToolWindow {
         // click handlers for buttons
         this.runButton.addActionListener(e -> run());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
+        this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
     }
 
     void moduleScopeButtonHandler() {
@@ -56,6 +60,14 @@ public class CodeGraphToolWindow {
             this.moduleScopeComboBox.removeAllItems();
             getActiveModules(project)
                     .forEach(module -> this.moduleScopeComboBox.addItem(module.getName()));
+        }
+    }
+
+    void directoryScopeButtonHandler() {
+        Project project = getActiveProject();
+        if (project != null) {
+            // set up directory option text field
+            this.directoryScopeTextField.setText(project.getBasePath());
         }
     }
 
@@ -84,7 +96,7 @@ public class CodeGraphToolWindow {
     @Nullable
     private Project getActiveProject() {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
-        return Arrays.stream(projects)
+        return Stream.of(projects)
                 .filter(project -> {
                     Window window = WindowManager.getInstance().suggestParentWindow(project);
                     return window != null && window.isActive();
@@ -100,9 +112,8 @@ public class CodeGraphToolWindow {
 
     @NotNull
     private Set<PsiFile> getSourceCodeFiles(@NotNull Project project) {
-        VirtualFile[] sourceRoots = ProjectRootManager.getInstance(project).getContentSourceRoots();
-        System.out.println(String.format("found %d source roots", sourceRoots.length));
-        return Arrays.stream(sourceRoots)
+        return getSourceCodeRoots(project)
+                .stream()
                 .flatMap(contentSourceRoot -> {
                     List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
                     ContentIterator contentIterator = child -> {
@@ -122,23 +133,47 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
+    private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project) {
+        if (this.projectScopeButton.isSelected()) {
+            VirtualFile[] sourceRoots = ProjectRootManager.getInstance(project).getContentSourceRoots();
+            return Stream.of(sourceRoots).collect(Collectors.toSet());
+        } else if (this.moduleScopeButton.isSelected()) {
+            Set<Module> selectedModules = getSelectedModules(project);
+            return selectedModules.stream()
+                    .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots()))
+                    .collect(Collectors.toSet());
+        } else if (this.directoryScopeButton.isSelected()) {
+            String path = this.directoryScopeTextField.getText();
+            if (!path.isEmpty()) {
+                VirtualFile root = LocalFileSystem.getInstance().findFileByPath(path);
+                if (root != null) {
+                    return Collections.singleton(root);
+                }
+            }
+            return Collections.emptySet();
+        } else if (this.customScopeButton.isSelected()) {
+            System.out.println("(getSourceCodeRoots) Custom scope not implemented");
+        }
+        return Collections.emptySet();
+    }
+
+    @NotNull
     private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMap(
             @NotNull Project project,
             @NotNull Set<PsiFile> sourceCodeFiles) {
         Set<PsiMethod> allMethods = sourceCodeFiles.stream()
-                .flatMap(psiFile -> Arrays.stream(((PsiJavaFile)psiFile).getClasses())) // get all classes
-                .flatMap(psiClass -> Arrays.stream(psiClass.getMethods())) // get all methods
+                .flatMap(psiFile -> Stream.of(((PsiJavaFile)psiFile).getClasses())) // get all classes
+                .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
         return allMethods.stream()
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-//                            SearchScope searchScope = PsiSearchScopeUtil.restrictScopeTo(globalSearchScope, StdFileTypes.JAVA);
                             SearchScope searchScope = getSearchScope(project, method);
                             long start = new Date().getTime();
                             Collection<PsiReference> references = ReferencesSearch.search(method, searchScope).findAll();
                             long now = new Date().getTime();
-                            System.out.printf("%d millisec for method %s\n", now - start, method.getName());
+                            System.out.printf("%d milliseconds for method %s\n", now - start, method.getName());
                             return references.stream()
                                     .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
                                     .filter(Objects::nonNull)
@@ -241,20 +276,25 @@ public class CodeGraphToolWindow {
     }
 
     @NotNull
+    private Set<Module> getSelectedModules(@NotNull Project project) {
+        String selectedModuleName = (String) this.moduleScopeComboBox.getSelectedItem();
+        return getActiveModules(project)
+                .stream()
+                .filter(module -> module.getName().equals(selectedModuleName))
+                .collect(Collectors.toSet());
+    }
+
+    @NotNull
     private SearchScope getSearchScope(@NotNull Project project, @NotNull PsiMethod method) {
         if (this.projectScopeButton.isSelected()) {
             return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
         } else if (this.moduleScopeButton.isSelected()) {
-            String selectedModuleName = (String) this.moduleScopeComboBox.getSelectedItem();
-            Set<Module> selectedModules = getActiveModules(project)
-                    .stream()
-                    .filter(module -> module.getName().equals(selectedModuleName))
-                    .collect(Collectors.toSet());
+            Set<Module> selectedModules = getSelectedModules(project);
             return new ModulesScope(selectedModules, project);
         } else if (this.directoryScopeButton.isSelected()) {
-            System.out.println("Directory scope not implemented");
+            System.out.println("(getSearchScope) Directory scope not implemented");
         } else if (this.customScopeButton.isSelected()) {
-            System.out.println("Custom scope not implemented");
+            System.out.println("(getSearchScope) Custom scope not implemented");
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
     }
