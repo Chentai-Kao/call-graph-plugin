@@ -1,21 +1,50 @@
+import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.event.*;
 import java.awt.geom.Point2D;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
     private Canvas canvas;
+    private CodeGraphToolWindow codeGraphToolWindow;
     private Point2D lastMousePosition;
 
     // construction
-    void init(@NotNull Canvas canvas) {
+    void init(@NotNull Canvas canvas, @NotNull CodeGraphToolWindow codeGraphToolWindow) {
         this.canvas = canvas;
+        this.codeGraphToolWindow = codeGraphToolWindow;
     }
 
     public void mouseClicked(@NotNull MouseEvent event) {
         Node node = this.canvas.getNodeUnderPoint(event.getPoint());
-        if (node != null) {
+        if (node == null) {
+            this.codeGraphToolWindow.setFunctionDocCommentLabelText("");
+            this.codeGraphToolWindow.setFunctionInfoLabelText("");
+        } else {
             System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getLabel()));
+            // switch to navigate tab
+            this.codeGraphToolWindow.focusNavigateTab();
+
+            // show function signature
+            PsiMethod method = node.getMethod();
+            String functionReturnType = method.getReturnType() == null
+                    ? "" : htmlBold(extractLastPart(method.getReturnType().getCanonicalText()));
+            String functionName = method.getName();
+            String functionParameters = Stream.of(method.getParameterList().getParameters())
+                    .map(parameter -> String.format("%s %s",
+                            htmlBold(extractLastPart(parameter.getType().getCanonicalText())),
+                            parameter.getName()))
+                    .collect(Collectors.joining(", "));
+            String functionSignature = String.format("%s %s(%s)", functionReturnType, functionName, functionParameters);
+            String functionSignatureHtml = toHtml(functionSignature);
+            this.codeGraphToolWindow.setFunctionInfoLabelText(functionSignatureHtml);
+
+            // show function doc comment
+            String functionDocComment = method.getDocComment() == null ? "" : method.getDocComment().getText();
+            String functionDocCommentHtml = toHtml(functionDocComment);
+            this.codeGraphToolWindow.setFunctionDocCommentLabelText(functionDocCommentHtml);
         }
     }
 
@@ -67,5 +96,27 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
         this.canvas.setZoomRatio(newZoomRatio)
                 .setCameraCenter(newCameraCenter)
                 .repaint();
+    }
+
+    @NotNull
+    private String extractLastPart(@NotNull String text) {
+        String[] parts = text.split("\\.");
+        return parts[parts.length - 1];
+    }
+
+    @NotNull
+    private String htmlBold(@NotNull String text) {
+        return wrapHtmlTag(text, "b");
+    }
+
+    @NotNull
+    private String toHtml(@NotNull String text) {
+        String multipleLines = text.replace("\n", "<br>");
+        return wrapHtmlTag(multipleLines, "html");
+    }
+
+    @NotNull
+    private String wrapHtmlTag(@NotNull String text, @NotNull String htmlTag) {
+        return String.format("<%s>%s</%s>", htmlTag, text, htmlTag);
     }
 }

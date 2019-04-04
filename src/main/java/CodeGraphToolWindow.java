@@ -50,9 +50,11 @@ public class CodeGraphToolWindow {
     private JComboBox<String> moduleScopeComboBox;
     private JRadioButton customScopeButton;
     private JComboBox customScopeComboBox;
+    private JTabbedPane mainTabbedPanel;
+    private JLabel functionSignatureLabel;
+    private JLabel functionDocCommentLabel;
 
     private ProgressIndicator progressIndicator;
-
 
     public CodeGraphToolWindow() {
         // click handlers for buttons
@@ -115,6 +117,7 @@ public class CodeGraphToolWindow {
         Canvas canvas = renderGraphOnCanvas(graph);
         System.out.println("--- attaching event listeners ---");
         attachEventListeners(canvas);
+        focusNavigateTab();
     }
 
     @Nullable
@@ -231,7 +234,7 @@ public class CodeGraphToolWindow {
 
     private void attachEventListeners(@NotNull Canvas canvas) {
         MouseEventHandler mouseEventHandler = new MouseEventHandler();
-        mouseEventHandler.init(canvas);
+        mouseEventHandler.init(canvas, this);
         canvas.addMouseListener(mouseEventHandler);
         canvas.addMouseMotionListener(mouseEventHandler);
         canvas.addMouseWheelListener(mouseEventHandler);
@@ -321,5 +324,17 @@ public class CodeGraphToolWindow {
             System.out.println("(getSearchScope) Custom scope not implemented");
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
+    }
+
+    void setFunctionDocCommentLabelText(@NotNull String text) {
+        this.functionDocCommentLabel.setText(text);
+    }
+
+    void setFunctionInfoLabelText(@NotNull String text) {
+        this.functionSignatureLabel.setText(text);
+    }
+
+    void focusNavigateTab() {
+        this.mainTabbedPanel.setSelectedIndex(1);
     }
 }
