@@ -24,7 +24,7 @@ apply plugin: 'org.jetbrains.intellij'
 
 intellij {
     version '2018.3.5' // Intellij version to build against
-    pluginName 'idear'
+    pluginName 'code-graph'
     intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
 }
 
@@ -32,4 +32,9 @@ patchPluginXml {
     changeNotes """
       Add change notes here.<br>
       <em>most HTML tags may be used</em>"""
+}
+
+publishPlugin {
+    username intellijPublishUsername
+    password intellijPublishPassword
 }
