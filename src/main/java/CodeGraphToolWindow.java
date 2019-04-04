@@ -1,6 +1,11 @@
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.module.impl.scopes.ModulesScope;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressIndicatorProvider;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.roots.ContentIterator;
@@ -46,6 +51,9 @@ public class CodeGraphToolWindow {
     private JRadioButton customScopeButton;
     private JComboBox customScopeComboBox;
 
+    private ProgressIndicator progressIndicator;
+
+
     public CodeGraphToolWindow() {
         // click handlers for buttons
         this.runButton.addActionListener(e -> run());
@@ -76,6 +84,22 @@ public class CodeGraphToolWindow {
         if (project == null) {
             return;
         }
+        // cancel existing progress if any
+        if (this.progressIndicator != null) {
+            this.progressIndicator.cancel();
+        }
+        ProgressManager.getInstance().run(
+                new Task.Backgroundable(project, "Code Graph") {
+                    public void run(@NotNull ProgressIndicator progressIndicator) {
+                        ApplicationManager.getApplication()
+                                .runReadAction(() -> main(project));
+                    }
+                }
+        );
+    }
+
+    public void main(@NotNull Project project) {
+        this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
         System.out.println("--- getting source code files ---");
         Set<PsiFile> sourceCodeFiles = getSourceCodeFiles(project);
         System.out.println(String.format("found %d files", sourceCodeFiles.size()));
