@@ -53,6 +53,7 @@ public class CodeGraphToolWindow {
     private JTabbedPane mainTabbedPanel;
     private JLabel functionSignatureLabel;
     private JLabel functionDocCommentLabel;
+    private JLabel functionFilePathLabel;
 
     private ProgressIndicator progressIndicator;
 
@@ -116,7 +117,7 @@ public class CodeGraphToolWindow {
         System.out.println("--- rendering graph ---");
         Canvas canvas = renderGraphOnCanvas(graph);
         System.out.println("--- attaching event listeners ---");
-        attachEventListeners(canvas);
+        attachEventListeners(canvas, project);
         focusNavigateTab();
     }
 
@@ -232,9 +233,9 @@ public class CodeGraphToolWindow {
         return canvas;
     }
 
-    private void attachEventListeners(@NotNull Canvas canvas) {
+    private void attachEventListeners(@NotNull Canvas canvas, @NotNull Project project) {
         MouseEventHandler mouseEventHandler = new MouseEventHandler();
-        mouseEventHandler.init(canvas, this);
+        mouseEventHandler.init(canvas, this, project);
         canvas.addMouseListener(mouseEventHandler);
         canvas.addMouseMotionListener(mouseEventHandler);
         canvas.addMouseWheelListener(mouseEventHandler);
@@ -330,8 +331,12 @@ public class CodeGraphToolWindow {
         this.functionDocCommentLabel.setText(text);
     }
 
-    void setFunctionInfoLabelText(@NotNull String text) {
+    void setFunctionSignatureLabelText(@NotNull String text) {
         this.functionSignatureLabel.setText(text);
+    }
+
+    void setFunctionFilePathLabelText(@NotNull String text) {
+        this.functionFilePathLabel.setText(text);
     }
 
     void focusNavigateTab() {

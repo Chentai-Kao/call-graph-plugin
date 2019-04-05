@@ -1,4 +1,12 @@
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ProjectFileIndex;
+import com.intellij.openapi.vfs.VfsUtilCore;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiMethod;
+import com.intellij.psi.util.PsiTreeUtil;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.event.*;
@@ -9,37 +17,42 @@ import java.util.stream.Stream;
 class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
     private Canvas canvas;
     private CodeGraphToolWindow codeGraphToolWindow;
+    private Project project;
     private Point2D lastMousePosition;
 
-    // construction
-    void init(@NotNull Canvas canvas, @NotNull CodeGraphToolWindow codeGraphToolWindow) {
+    void init(@NotNull Canvas canvas, @NotNull CodeGraphToolWindow codeGraphToolWindow, @NotNull Project project) {
         this.canvas = canvas;
         this.codeGraphToolWindow = codeGraphToolWindow;
+        this.project = project;
     }
 
     public void mouseClicked(@NotNull MouseEvent event) {
         Node node = this.canvas.getNodeUnderPoint(event.getPoint());
         if (node == null) {
             this.codeGraphToolWindow.setFunctionDocCommentLabelText("");
-            this.codeGraphToolWindow.setFunctionInfoLabelText("");
+            this.codeGraphToolWindow.setFunctionSignatureLabelText("");
         } else {
             System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getLabel()));
             // switch to navigate tab
             this.codeGraphToolWindow.focusNavigateTab();
 
-            // show function signature
+            // function file path
             PsiMethod method = node.getMethod();
+            String functionFilePath = getFunctionFilePath(method);
+            this.codeGraphToolWindow.setFunctionFilePathLabelText(functionFilePath);
+
+            // show function signature
             String functionReturnType = method.getReturnType() == null
-                    ? "" : htmlBold(extractLastPart(method.getReturnType().getCanonicalText()));
+                    ? "" : htmlBold(escapeHtml(extractLastPart(method.getReturnType().getCanonicalText())));
             String functionName = method.getName();
             String functionParameters = Stream.of(method.getParameterList().getParameters())
                     .map(parameter -> String.format("%s %s",
-                            htmlBold(extractLastPart(parameter.getType().getCanonicalText())),
+                            htmlBold(escapeHtml(extractLastPart(parameter.getType().getCanonicalText()))),
                             parameter.getName()))
                     .collect(Collectors.joining(", "));
             String functionSignature = String.format("%s %s(%s)", functionReturnType, functionName, functionParameters);
             String functionSignatureHtml = toHtml(functionSignature);
-            this.codeGraphToolWindow.setFunctionInfoLabelText(functionSignatureHtml);
+            this.codeGraphToolWindow.setFunctionSignatureLabelText(functionSignatureHtml);
 
             // show function doc comment
             String functionDocComment = method.getDocComment() == null ? "" : method.getDocComment().getText();
@@ -116,7 +129,29 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
     }
 
     @NotNull
+    private String escapeHtml(@NotNull String text) {
+        return StringEscapeUtils.escapeHtml(text);
+    }
+
+    @NotNull
     private String wrapHtmlTag(@NotNull String text, @NotNull String htmlTag) {
         return String.format("<%s>%s</%s>", htmlTag, text, htmlTag);
+    }
+
+    @NotNull
+    private String getFunctionFilePath(@NotNull PsiElement psiElement) {
+        PsiFile psiFile = PsiTreeUtil.getParentOfType(psiElement, PsiFile.class);
+        if (psiFile != null) {
+            VirtualFile currentFile = psiFile.getVirtualFile();
+            VirtualFile rootFile =
+                    ProjectFileIndex.SERVICE.getInstance(this.project).getContentRootForFile(currentFile);
+            if (rootFile != null) {
+                String relativePath = VfsUtilCore.getRelativePath(currentFile, rootFile);
+                if (relativePath != null) {
+                    return relativePath;
+                }
+            }
+        }
+        return "";
     }
 }
