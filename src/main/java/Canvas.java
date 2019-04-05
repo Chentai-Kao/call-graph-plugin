@@ -4,10 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.geom.Arc2D;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Line2D;
-import java.awt.geom.Point2D;
+import java.awt.geom.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,6 +28,7 @@ class Canvas extends JPanel {
             new float[] { 5.0f },
             0.0f
     );
+    private final JBColor backgroundColor = JBColor.WHITE;
     private final JBColor unHighlightedLineColor = JBColor.LIGHT_GRAY;
     private final JBColor highlightedLineColor = JBColor.BLACK;
     private final JBColor unHighlightedTextColor = JBColor.DARK_GRAY;
@@ -87,6 +85,10 @@ class Canvas extends JPanel {
         Graphics2D graphics2D = (Graphics2D) graphics;
         graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        // fill the background for entire canvas
+        graphics2D.setColor(this.backgroundColor);
+        graphics2D.fillRect(0, 0, this.getWidth(), this.getHeight());
 
         // draw edges
         this.graph.getEdges()
@@ -163,11 +165,22 @@ class Canvas extends JPanel {
             @NotNull Point2D nodeCenter,
             @NotNull String text,
             boolean isHighlighted) {
+        FontMetrics fontMetrics = graphics2D.getFontMetrics();
         Point2D labelLowerLeft = new Point2D.Float(
-                (float) (nodeCenter.getX() - this.nodeRadius),
-                (float) (nodeCenter.getY() - this.nodeDiameter)
+                (int) (nodeCenter.getX() + 2 * this.nodeDiameter),
+                (int) (nodeCenter.getY() + 0.5 * fontMetrics.getAscent() - 0.5 * fontMetrics.getDescent())
         );
-        JBColor textColor = isHighlighted ? highlightedTextColor : unHighlightedTextColor;
+        // draw text background
+        Rectangle2D textBoundingBox = fontMetrics.getStringBounds(text, graphics2D);
+        graphics2D.setColor(this.backgroundColor);
+        graphics2D.fillRect(
+                (int) labelLowerLeft.getX(),
+                (int) labelLowerLeft.getY() - fontMetrics.getAscent(),
+                (int) textBoundingBox.getWidth(),
+                (int) textBoundingBox.getHeight()
+        );
+        // draw text
+        JBColor textColor = isHighlighted ? this.highlightedTextColor : this.unHighlightedTextColor;
         graphics2D.setColor(textColor);
         graphics2D.drawString(text, (float) labelLowerLeft.getX(), (float) labelLowerLeft.getY());
     }
