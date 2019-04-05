@@ -56,6 +56,8 @@ public class CodeGraphToolWindow {
     private JLabel functionFilePathLabel;
 
     private ProgressIndicator progressIndicator;
+    private final float xGridRatio = 1.0f;
+    private final float yGridRatio = 2.0f;
 
     public CodeGraphToolWindow() {
         // click handlers for buttons
@@ -285,8 +287,8 @@ public class CodeGraphToolWindow {
                 .map(line -> line.split(" "))
                 .forEach(parts -> {
                     String nodeId = parts[1];
-                    float x = Float.parseFloat(parts[2]) / graphWidth;
-                    float y = Float.parseFloat(parts[3]) / graphHeight;
+                    float x = this.xGridRatio * Float.parseFloat(parts[2]) / graphWidth;
+                    float y = this.yGridRatio * Float.parseFloat(parts[3]) / graphHeight;
                     graph.getNode(nodeId).setCoordinate(x, y);
                 });
     }

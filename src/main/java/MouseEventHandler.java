@@ -28,9 +28,11 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
 
     public void mouseClicked(@NotNull MouseEvent event) {
         Node node = this.canvas.getNodeUnderPoint(event.getPoint());
+        this.canvas.setClickedNode(node);
         if (node == null) {
-            this.codeGraphToolWindow.setFunctionDocCommentLabelText("");
+            this.codeGraphToolWindow.setFunctionFilePathLabelText("");
             this.codeGraphToolWindow.setFunctionSignatureLabelText("");
+            this.codeGraphToolWindow.setFunctionDocCommentLabelText("");
         } else {
             System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getLabel()));
             // switch to navigate tab
@@ -90,6 +92,8 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
     }
 
     public void mouseMoved(@NotNull MouseEvent event) {
+        Node node = this.canvas.getNodeUnderPoint(event.getPoint());
+        this.canvas.setHoveredNode(node);
     }
 
     public void mouseWheelMoved(@NotNull MouseWheelEvent event) {
