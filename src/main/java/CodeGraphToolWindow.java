@@ -49,7 +49,7 @@ public class CodeGraphToolWindow {
     private JTextField directoryScopeTextField;
     private JComboBox<String> moduleScopeComboBox;
     private JRadioButton customScopeButton;
-    private JComboBox customScopeComboBox;
+    private JComboBox<String> customScopeComboBox;
     private JTabbedPane mainTabbedPanel;
     private JLabel functionSignatureLabel;
     private JLabel functionDocCommentLabel;
@@ -58,8 +58,27 @@ public class CodeGraphToolWindow {
     private ProgressIndicator progressIndicator;
     private final float xGridRatio = 1.0f;
     private final float yGridRatio = 2.0f;
+    private enum CustomScopeOption {
+        PRODUCTION("Project production files"),
+        TEST("Project test files"),
+        CURRENT_FILE("Current file");
+
+        private String text;
+
+        CustomScopeOption(@NotNull String text) {
+            this.text = text;
+        }
+
+        public String getText() {
+            return this.text;
+        }
+    }
 
     public CodeGraphToolWindow() {
+        // set up custom scope drop-down menu
+        Stream.of(CustomScopeOption.values())
+                .forEach(customScopeOption -> this.customScopeComboBox.addItem(customScopeOption.getText()));
+
         // click handlers for buttons
         this.runButton.addActionListener(e -> run());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
@@ -69,7 +88,7 @@ public class CodeGraphToolWindow {
     void moduleScopeButtonHandler() {
         Project project = getActiveProject();
         if (project != null) {
-            // set up modules drop down
+            // set up modules drop-down
             this.moduleScopeComboBox.removeAllItems();
             getActiveModules(project)
                     .forEach(module -> this.moduleScopeComboBox.addItem(module.getName()));
@@ -165,11 +184,11 @@ public class CodeGraphToolWindow {
     @NotNull
     private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project) {
         if (this.projectScopeButton.isSelected()) {
-            VirtualFile[] sourceRoots = ProjectRootManager.getInstance(project).getContentSourceRoots();
-            return Stream.of(sourceRoots).collect(Collectors.toSet());
+            VirtualFile[] contentRoots = ProjectRootManager.getInstance(project).getContentRoots();
+            return new HashSet<>(Arrays.asList(contentRoots));
         } else if (this.moduleScopeButton.isSelected()) {
-            Set<Module> selectedModules = getSelectedModules(project);
-            return selectedModules.stream()
+            return getSelectedModules(project)
+                    .stream()
                     .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots()))
                     .collect(Collectors.toSet());
         } else if (this.directoryScopeButton.isSelected()) {
@@ -182,7 +201,25 @@ public class CodeGraphToolWindow {
             }
             return Collections.emptySet();
         } else if (this.customScopeButton.isSelected()) {
-            System.out.println("(getSourceCodeRoots) Custom scope not implemented");
+            CustomScopeOption customScopeOption = getSelectedCustomScopeOption();
+            if (customScopeOption == CustomScopeOption.PRODUCTION) {
+                return getActiveModules(project)
+                        .stream()
+                        .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots(false)))
+                        .collect(Collectors.toSet());
+            } else if (customScopeOption == CustomScopeOption.TEST) {
+                return getActiveModules(project)
+                        .stream()
+                        .flatMap(module -> {
+                            VirtualFile[] sourceOnly = ModuleRootManager.getInstance(module).getSourceRoots(false);
+                            Set<VirtualFile> sourceOnlySet = new HashSet<>(Arrays.asList(sourceOnly));
+                            VirtualFile[] sourceAndTest = ModuleRootManager.getInstance(module).getSourceRoots(true);
+                            return Stream.of(sourceAndTest).filter(file -> !sourceOnlySet.contains(file));
+                        })
+                        .collect(Collectors.toSet());
+            } else if (customScopeOption == CustomScopeOption.CURRENT_FILE) {
+                System.out.println("(getSourceCodeRoots) current file option not implemented");
+            }
         }
         return Collections.emptySet();
     }
@@ -324,7 +361,22 @@ public class CodeGraphToolWindow {
         } else if (this.directoryScopeButton.isSelected()) {
             System.out.println("(getSearchScope) Directory scope not implemented");
         } else if (this.customScopeButton.isSelected()) {
-            System.out.println("(getSearchScope) Custom scope not implemented");
+            CustomScopeOption customScopeOption = getSelectedCustomScopeOption();
+            if (customScopeOption == CustomScopeOption.PRODUCTION) {
+                GlobalSearchScope[] modulesScope = getActiveModules(project)
+                        .stream()
+                        .map(module -> module.getModuleScope(false))
+                        .toArray(GlobalSearchScope[]::new);
+                return GlobalSearchScope.union(modulesScope);
+            } else if (customScopeOption == CustomScopeOption.TEST) {
+                GlobalSearchScope[] modulesScope = getActiveModules(project)
+                        .stream()
+                        .map(Module::getModuleScope)
+                        .toArray(GlobalSearchScope[]::new);
+                return GlobalSearchScope.union(modulesScope);
+            } else if (customScopeOption == CustomScopeOption.CURRENT_FILE) {
+                return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
+            }
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
     }
@@ -343,5 +395,14 @@ public class CodeGraphToolWindow {
 
     void focusNavigateTab() {
         this.mainTabbedPanel.setSelectedIndex(1);
+    }
+
+    @Nullable
+    private CustomScopeOption getSelectedCustomScopeOption() {
+        String selectedOptionText = (String) this.customScopeComboBox.getSelectedItem();
+        return Arrays.stream(CustomScopeOption.values())
+                .filter(option -> option.getText().equals(selectedOptionText))
+                .findFirst()
+                .orElse(null);
     }
 }

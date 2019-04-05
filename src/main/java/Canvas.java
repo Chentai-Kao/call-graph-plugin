@@ -21,8 +21,6 @@ class Canvas extends JPanel {
     private float zoomRatio = 1.0f;
     private final int nodeRadius = 5;
     private final int nodeDiameter = 2 * nodeRadius;
-    private final int selfLoopRadius = 10;
-    private final int selfLoopDiameter = 2 * selfLoopRadius;
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
     private final Stroke dashedLineStroke = new BasicStroke(
@@ -95,21 +93,17 @@ class Canvas extends JPanel {
                 .forEach(edge -> {
                     Node sourceNode = edge.getSourceNode();
                     Node targetNode = edge.getTargetNode();
+                    Point2D sourceNodeCenter = toCameraView(new Point2D.Float(sourceNode.getX(), sourceNode.getY()));
                     boolean isHighlighted = isNodeHighlighted(sourceNode) || isNodeHighlighted(targetNode);
                     if (sourceNode == targetNode) {
                         // recursive function call, draw self loop
-                        Point2D nodeCenter = toCameraView(new Point2D.Float(sourceNode.getX(), sourceNode.getY()));
-                        drawSelfLoop(graphics2D, nodeCenter, isHighlighted);
+                        drawSelfLoop(graphics2D, sourceNodeCenter, isHighlighted);
                     } else {
                         // non recursive function call, draw line (dashed if call looks backward on the graph)
-                        boolean isDashed = sourceNode.getX() > targetNode.getX();
-                        drawLine(
-                                graphics2D,
-                                toCameraView(new Point2D.Float(sourceNode.getX(), sourceNode.getY())),
-                                toCameraView(new Point2D.Float(targetNode.getX(), targetNode.getY())),
-                                isDashed,
-                                isHighlighted
-                        );
+                        Point2D targetNodeCenter =
+                                toCameraView(new Point2D.Float(targetNode.getX(), targetNode.getY()));
+                        boolean isDashed = sourceNodeCenter.getX() > targetNodeCenter.getX();
+                        drawLine(graphics2D, sourceNodeCenter, targetNodeCenter, isDashed, isHighlighted);
                     }
                 });
 
@@ -197,15 +191,17 @@ class Canvas extends JPanel {
             @NotNull Point2D nodeCenter,
             boolean isHighlighted) {
         // create node shape
+        int selfLoopRadius = 10;
+        int selfLoopDiameter = 2 * selfLoopRadius;
         Point2D loopUpperLeft = new Point2D.Float(
-                (float) nodeCenter.getX() - this.selfLoopRadius,
-                (float) nodeCenter.getY() - this.selfLoopDiameter
+                (float) nodeCenter.getX() - selfLoopRadius,
+                (float) nodeCenter.getY() - selfLoopDiameter
         );
         Arc2D shape = new Arc2D.Float(
                 (float) loopUpperLeft.getX(),
                 (float) loopUpperLeft.getY(),
-                this.selfLoopDiameter,
-                this.selfLoopDiameter,
+                selfLoopDiameter,
+                selfLoopDiameter,
                 0.0f,
                 360.0f,
                 Arc2D.OPEN
