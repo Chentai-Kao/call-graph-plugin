@@ -24,7 +24,7 @@ apply plugin: 'org.jetbrains.intellij'
 
 intellij {
     version '2018.3.5' // Intellij version to build against
-    pluginName 'code-graph'
+    pluginName 'call-graph'
     intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
 }
 

@@ -39,9 +39,9 @@ import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.mutNode;
 
 @SuppressWarnings("WeakerAccess")
-public class CodeGraphToolWindow {
+public class CallGraphToolWindow {
     private JButton runButton;
-    private JPanel codeGraphToolWindowContent;
+    private JPanel callGraphToolWindowContent;
     private JPanel canvasPanel;
     private JRadioButton projectScopeButton;
     private JRadioButton moduleScopeButton;
@@ -74,7 +74,7 @@ public class CodeGraphToolWindow {
         }
     }
 
-    public CodeGraphToolWindow() {
+    public CallGraphToolWindow() {
         // set up custom scope drop-down menu
         Stream.of(CustomScopeOption.values())
                 .forEach(customScopeOption -> this.customScopeComboBox.addItem(customScopeOption.getText()));
@@ -113,7 +113,7 @@ public class CodeGraphToolWindow {
             this.progressIndicator.cancel();
         }
         ProgressManager.getInstance().run(
-                new Task.Backgroundable(project, "Code Graph") {
+                new Task.Backgroundable(project, "Call Graph") {
                     public void run(@NotNull ProgressIndicator progressIndicator) {
                         ApplicationManager.getApplication()
                                 .runReadAction(() -> main(project));
@@ -339,7 +339,7 @@ public class CodeGraphToolWindow {
 
     @NotNull
     public JPanel getContent() {
-        return this.codeGraphToolWindowContent;
+        return this.callGraphToolWindowContent;
     }
 
     @NotNull

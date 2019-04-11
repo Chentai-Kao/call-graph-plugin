@@ -1,6 +1,6 @@
 <idea-plugin>
-    <id>com.jetbrains.code-graph-plugin</id>
-    <name>Code Graph</name>
+    <id>com.jetbrains.call-graph-plugin</id>
+    <name>Call Graph</name>
     <vendor email="chentai.kao@gmail.com" url="https://chent.ai">Chentai</vendor>
 
     <description>A tool to visualize class/function/variable level dependency graph.</description>
@@ -13,11 +13,11 @@
     <extensions defaultExtensionNs="com.intellij">
         <!-- Add your extensions here -->
         <toolWindow
-                id="Code Graph"
+                id="Call Graph"
                 secondary="true"
                 icon="/icons/plus.png"
                 anchor="right"
-                factoryClass="CodeGraphToolWindowFactory"/>
+                factoryClass="CallGraphToolWindowFactory"/>
     </extensions>
 
     <actions>

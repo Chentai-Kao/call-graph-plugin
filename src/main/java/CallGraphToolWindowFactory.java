@@ -3,12 +3,12 @@ import com.intellij.openapi.wm.*;
 import com.intellij.ui.content.*;
 import org.jetbrains.annotations.NotNull;
 
-public class CodeGraphToolWindowFactory implements com.intellij.openapi.wm.ToolWindowFactory {
+public class CallGraphToolWindowFactory implements com.intellij.openapi.wm.ToolWindowFactory {
     // Create the tool window content.
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        CodeGraphToolWindow codeGraphToolWindow = new CodeGraphToolWindow();
+        CallGraphToolWindow callGraphToolWindow = new CallGraphToolWindow();
         ContentFactory contentFactory = ContentFactory.SERVICE.getInstance();
-        Content content = contentFactory.createContent(codeGraphToolWindow.getContent(), "", false);
+        Content content = contentFactory.createContent(callGraphToolWindow.getContent(), "", false);
         toolWindow.getContentManager().addContent(content);
     }
 }

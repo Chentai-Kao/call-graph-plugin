@@ -16,13 +16,13 @@ import java.util.stream.Stream;
 
 class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
     private Canvas canvas;
-    private CodeGraphToolWindow codeGraphToolWindow;
+    private CallGraphToolWindow callGraphToolWindow;
     private Project project;
     private Point2D lastMousePosition;
 
-    void init(@NotNull Canvas canvas, @NotNull CodeGraphToolWindow codeGraphToolWindow, @NotNull Project project) {
+    void init(@NotNull Canvas canvas, @NotNull CallGraphToolWindow callGraphToolWindow, @NotNull Project project) {
         this.canvas = canvas;
-        this.codeGraphToolWindow = codeGraphToolWindow;
+        this.callGraphToolWindow = callGraphToolWindow;
         this.project = project;
     }
 
@@ -30,18 +30,18 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
         Node node = this.canvas.getNodeUnderPoint(event.getPoint());
         this.canvas.setClickedNode(node);
         if (node == null) {
-            this.codeGraphToolWindow.setFunctionFilePathLabelText("");
-            this.codeGraphToolWindow.setFunctionSignatureLabelText("");
-            this.codeGraphToolWindow.setFunctionDocCommentLabelText("");
+            this.callGraphToolWindow.setFunctionFilePathLabelText("");
+            this.callGraphToolWindow.setFunctionSignatureLabelText("");
+            this.callGraphToolWindow.setFunctionDocCommentLabelText("");
         } else {
             System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getLabel()));
             // switch to navigate tab
-            this.codeGraphToolWindow.focusNavigateTab();
+            this.callGraphToolWindow.focusNavigateTab();
 
             // function file path
             PsiMethod method = node.getMethod();
             String functionFilePath = getFunctionFilePath(method);
-            this.codeGraphToolWindow.setFunctionFilePathLabelText(functionFilePath);
+            this.callGraphToolWindow.setFunctionFilePathLabelText(functionFilePath);
 
             // show function signature
             String functionReturnType = method.getReturnType() == null
@@ -54,12 +54,12 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
                     .collect(Collectors.joining(", "));
             String functionSignature = String.format("%s %s(%s)", functionReturnType, functionName, functionParameters);
             String functionSignatureHtml = toHtml(functionSignature);
-            this.codeGraphToolWindow.setFunctionSignatureLabelText(functionSignatureHtml);
+            this.callGraphToolWindow.setFunctionSignatureLabelText(functionSignatureHtml);
 
             // show function doc comment
             String functionDocComment = method.getDocComment() == null ? "" : method.getDocComment().getText();
             String functionDocCommentHtml = toHtml(functionDocComment);
-            this.codeGraphToolWindow.setFunctionDocCommentLabelText(functionDocCommentHtml);
+            this.callGraphToolWindow.setFunctionDocCommentLabelText(functionDocCommentHtml);
         }
     }
 

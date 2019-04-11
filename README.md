@@ -1,2 +1,2 @@
-# code-graph-plugin
-Code Graph Intellij Plugin
+# call-graph-plugin
+Call Graph Intellij Plugin
