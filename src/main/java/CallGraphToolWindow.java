@@ -50,10 +50,31 @@ public class CallGraphToolWindow {
     private JComboBox<String> moduleScopeComboBox;
     private JTabbedPane mainTabbedPanel;
     private JCheckBox includeTestFilesCheckBox;
+    private JLabel loadingLabel;
+    private JLabel buildOptionContentLabel;
+    @SuppressWarnings("unused")
+    private JLabel buildOptionHeaderLabel;
 
     private ProgressIndicator progressIndicator;
     private final float xGridRatio = 1.0f;
     private final float yGridRatio = 2.0f;
+    private enum BuildOption {
+        WHOLE_PROJECT_WITH_TEST("Whole project (test files included)"),
+        WHOLE_PROJECT_WITHOUT_TEST("Whole project (test files excluded)"),
+        MODULE("Module"),
+        DIRECTORY("Directory");
+
+        private final String label;
+
+        BuildOption(@NotNull String label) {
+            this.label = label;
+        }
+
+        @NotNull
+        public String getLabel() {
+            return this.label;
+        }
+    }
 
     public CallGraphToolWindow() {
         // click handlers for buttons
@@ -116,6 +137,7 @@ public class CallGraphToolWindow {
     }
 
     public void main(@NotNull Project project) {
+        setUpLoadingStartUI();
         this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
         System.out.println("--- getting source code files ---");
         Set<PsiFile> sourceCodeFiles = getSourceCodeFiles(project);
@@ -132,7 +154,35 @@ public class CallGraphToolWindow {
         Canvas canvas = renderGraphOnCanvas(graph, project);
         System.out.println("--- attaching event listeners ---");
         attachEventListeners(canvas);
-        focusNavigateTab();
+        setUpLoadingEndUI();
+    }
+
+    private void setUpLoadingStartUI() {
+        focusGraphTab();
+        BuildOption buildOption = getSelectedBuildOption();
+        switch (buildOption) {
+            case WHOLE_PROJECT_WITH_TEST:
+                // fall through
+            case WHOLE_PROJECT_WITHOUT_TEST:
+                this.buildOptionContentLabel.setText(buildOption.getLabel());
+                break;
+            case MODULE:
+                String moduleName = (String) this.moduleScopeComboBox.getSelectedItem();
+                this.buildOptionContentLabel.setText(String.format("%s [%s]", buildOption.getLabel(), moduleName));
+                break;
+            case DIRECTORY:
+                String path = this.directoryScopeTextField.getText();
+                this.buildOptionContentLabel.setText(String.format("%s [%s]", buildOption.getLabel(), path));
+                break;
+            default:
+                break;
+        }
+        toggleLoadingLabel(true);
+        this.canvasPanel.removeAll();
+    }
+
+    private void setUpLoadingEndUI() {
+        toggleLoadingLabel(false);
     }
 
     @Nullable
@@ -176,34 +226,31 @@ public class CallGraphToolWindow {
 
     @NotNull
     private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project) {
-        if (this.projectScopeButton.isSelected()) {
-            if (this.includeTestFilesCheckBox.isSelected()) {
-                // all files (including test files)
+        switch (getSelectedBuildOption()) {
+            case WHOLE_PROJECT_WITH_TEST:
                 VirtualFile[] contentRoots = ProjectRootManager.getInstance(project).getContentRoots();
                 return new HashSet<>(Arrays.asList(contentRoots));
-            } else {
-                // source code files (excluding test files)
+            case WHOLE_PROJECT_WITHOUT_TEST:
                 return getActiveModules(project)
                         .stream()
                         .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots(false)))
                         .collect(Collectors.toSet());
-            }
-        } else if (this.moduleScopeButton.isSelected()) {
-            // files in a specific module
-            return getSelectedModules(project)
-                    .stream()
-                    .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots()))
-                    .collect(Collectors.toSet());
-        } else if (this.directoryScopeButton.isSelected()) {
-            // files under a path
-            String path = this.directoryScopeTextField.getText();
-            if (!path.isEmpty()) {
-                VirtualFile root = LocalFileSystem.getInstance().findFileByPath(path);
-                if (root != null) {
-                    return Collections.singleton(root);
+            case MODULE:
+                return getSelectedModules(project)
+                        .stream()
+                        .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots()))
+                        .collect(Collectors.toSet());
+            case DIRECTORY:
+                String path = this.directoryScopeTextField.getText();
+                if (!path.isEmpty()) {
+                    VirtualFile root = LocalFileSystem.getInstance().findFileByPath(path);
+                    if (root != null) {
+                        return Collections.singleton(root);
+                    }
                 }
-            }
-            return Collections.emptySet();
+                return Collections.emptySet();
+            default:
+                break;
         }
         return Collections.emptySet();
     }
@@ -251,7 +298,6 @@ public class CallGraphToolWindow {
                 .setGraph(graph)
                 .setCanvasPanel(this.canvasPanel)
                 .setProject(project);
-        this.canvasPanel.removeAll();
         this.canvasPanel.add(canvas);
         this.canvasPanel.updateUI();
         return canvas;
@@ -338,26 +384,48 @@ public class CallGraphToolWindow {
 
     @NotNull
     private SearchScope getSearchScope(@NotNull Project project, @NotNull PsiMethod method) {
-        if (this.projectScopeButton.isSelected()) {
-            if (this.includeTestFilesCheckBox.isSelected()) {
+        switch (getSelectedBuildOption()) {
+            case WHOLE_PROJECT_WITH_TEST:
                 return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-            } else {
+            case WHOLE_PROJECT_WITHOUT_TEST:
                 GlobalSearchScope[] modulesScope = getActiveModules(project)
                         .stream()
                         .map(module -> module.getModuleScope(false))
                         .toArray(GlobalSearchScope[]::new);
                 return GlobalSearchScope.union(modulesScope);
-            }
-        } else if (this.moduleScopeButton.isSelected()) {
-            Set<Module> selectedModules = getSelectedModules(project);
-            return new ModulesScope(selectedModules, project);
-        } else if (this.directoryScopeButton.isSelected()) {
-            System.out.println("(getSearchScope) Directory scope not implemented");
+            case MODULE:
+                Set<Module> selectedModules = getSelectedModules(project);
+                return new ModulesScope(selectedModules, project);
+            case DIRECTORY:
+                System.out.println("(getSearchScope) Directory scope not implemented");
+                break;
+            default:
+                break;
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
     }
 
-    void focusNavigateTab() {
+    private void focusGraphTab() {
         this.mainTabbedPanel.setSelectedIndex(1);
+    }
+
+    private void toggleLoadingLabel(boolean isLoading) {
+        this.loadingLabel.setVisible(isLoading);
+    }
+
+    @NotNull
+    private BuildOption getSelectedBuildOption() {
+        if (this.projectScopeButton.isSelected()) {
+            if (this.includeTestFilesCheckBox.isSelected()) {
+                return BuildOption.WHOLE_PROJECT_WITH_TEST;
+            } else {
+                return BuildOption.WHOLE_PROJECT_WITHOUT_TEST;
+            }
+        } else if (this.moduleScopeButton.isSelected()) {
+            return BuildOption.MODULE;
+        } else if (this.directoryScopeButton.isSelected()) {
+            return BuildOption.DIRECTORY;
+        }
+        return BuildOption.WHOLE_PROJECT_WITH_TEST;
     }
 }
