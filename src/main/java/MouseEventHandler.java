@@ -1,66 +1,19 @@
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectFileIndex;
-import com.intellij.openapi.vfs.VfsUtilCore;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.util.PsiTreeUtil;
-import org.apache.commons.lang.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.event.*;
 import java.awt.geom.Point2D;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
     private Canvas canvas;
-    private CallGraphToolWindow callGraphToolWindow;
-    private Project project;
     private Point2D lastMousePosition;
 
-    void init(@NotNull Canvas canvas, @NotNull CallGraphToolWindow callGraphToolWindow, @NotNull Project project) {
+    void init(@NotNull Canvas canvas) {
         this.canvas = canvas;
-        this.callGraphToolWindow = callGraphToolWindow;
-        this.project = project;
     }
 
     public void mouseClicked(@NotNull MouseEvent event) {
         Node node = this.canvas.getNodeUnderPoint(event.getPoint());
         this.canvas.setClickedNode(node);
-        if (node == null) {
-            this.callGraphToolWindow.setFunctionFilePathLabelText("");
-            this.callGraphToolWindow.setFunctionSignatureLabelText("");
-            this.callGraphToolWindow.setFunctionDocCommentLabelText("");
-        } else {
-            System.out.println(String.format("clicked on node %s: %s", node.getId(), node.getLabel()));
-            // switch to navigate tab
-            this.callGraphToolWindow.focusNavigateTab();
-
-            // function file path
-            PsiMethod method = node.getMethod();
-            String functionFilePath = getFunctionFilePath(method);
-            this.callGraphToolWindow.setFunctionFilePathLabelText(functionFilePath);
-
-            // show function signature
-            String functionReturnType = method.getReturnType() == null
-                    ? "" : htmlBold(escapeHtml(extractLastPart(method.getReturnType().getCanonicalText())));
-            String functionName = method.getName();
-            String functionParameters = Stream.of(method.getParameterList().getParameters())
-                    .map(parameter -> String.format("%s %s",
-                            htmlBold(escapeHtml(extractLastPart(parameter.getType().getCanonicalText()))),
-                            parameter.getName()))
-                    .collect(Collectors.joining(", "));
-            String functionSignature = String.format("%s %s(%s)", functionReturnType, functionName, functionParameters);
-            String functionSignatureHtml = toHtml(functionSignature);
-            this.callGraphToolWindow.setFunctionSignatureLabelText(functionSignatureHtml);
-
-            // show function doc comment
-            String functionDocComment = method.getDocComment() == null ? "" : method.getDocComment().getText();
-            String functionDocCommentHtml = toHtml(functionDocComment);
-            this.callGraphToolWindow.setFunctionDocCommentLabelText(functionDocCommentHtml);
-        }
     }
 
     public void mousePressed(@NotNull MouseEvent event) {
@@ -113,49 +66,5 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
         this.canvas.setZoomRatio(newZoomRatio)
                 .setCameraCenter(newCameraCenter)
                 .repaint();
-    }
-
-    @NotNull
-    private String extractLastPart(@NotNull String text) {
-        String[] parts = text.split("\\.");
-        return parts[parts.length - 1];
-    }
-
-    @NotNull
-    private String htmlBold(@NotNull String text) {
-        return wrapHtmlTag(text, "b");
-    }
-
-    @NotNull
-    private String toHtml(@NotNull String text) {
-        String multipleLines = text.replace("\n", "<br>");
-        return wrapHtmlTag(multipleLines, "html");
-    }
-
-    @NotNull
-    private String escapeHtml(@NotNull String text) {
-        return StringEscapeUtils.escapeHtml(text);
-    }
-
-    @NotNull
-    private String wrapHtmlTag(@NotNull String text, @NotNull String htmlTag) {
-        return String.format("<%s>%s</%s>", htmlTag, text, htmlTag);
-    }
-
-    @NotNull
-    private String getFunctionFilePath(@NotNull PsiElement psiElement) {
-        PsiFile psiFile = PsiTreeUtil.getParentOfType(psiElement, PsiFile.class);
-        if (psiFile != null) {
-            VirtualFile currentFile = psiFile.getVirtualFile();
-            VirtualFile rootFile =
-                    ProjectFileIndex.SERVICE.getInstance(this.project).getContentRootForFile(currentFile);
-            if (rootFile != null) {
-                String relativePath = VfsUtilCore.getRelativePath(currentFile, rootFile);
-                if (relativePath != null) {
-                    return relativePath;
-                }
-            }
-        }
-        return "";
     }
 }

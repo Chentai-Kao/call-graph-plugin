@@ -51,9 +51,6 @@ public class CallGraphToolWindow {
     private JRadioButton customScopeButton;
     private JComboBox<String> customScopeComboBox;
     private JTabbedPane mainTabbedPanel;
-    private JLabel functionSignatureLabel;
-    private JLabel functionDocCommentLabel;
-    private JLabel functionFilePathLabel;
 
     private ProgressIndicator progressIndicator;
     private final float xGridRatio = 1.0f;
@@ -63,7 +60,7 @@ public class CallGraphToolWindow {
         TEST("Project test files"),
         CURRENT_FILE("Current file");
 
-        private String text;
+        private final String text;
 
         CustomScopeOption(@NotNull String text) {
             this.text = text;
@@ -136,9 +133,9 @@ public class CallGraphToolWindow {
         System.out.println("--- getting layout from GraphViz ---");
         layoutByGraphViz(graph);
         System.out.println("--- rendering graph ---");
-        Canvas canvas = renderGraphOnCanvas(graph);
+        Canvas canvas = renderGraphOnCanvas(graph, project);
         System.out.println("--- attaching event listeners ---");
-        attachEventListeners(canvas, project);
+        attachEventListeners(canvas);
         focusNavigateTab();
     }
 
@@ -262,19 +259,20 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private Canvas renderGraphOnCanvas(@NotNull Graph graph) {
+    private Canvas renderGraphOnCanvas(@NotNull Graph graph, @NotNull Project project) {
         Canvas canvas = new Canvas()
                 .setGraph(graph)
-                .setCanvasPanel(this.canvasPanel);
+                .setCanvasPanel(this.canvasPanel)
+                .setProject(project);
         this.canvasPanel.removeAll();
         this.canvasPanel.add(canvas);
         this.canvasPanel.updateUI();
         return canvas;
     }
 
-    private void attachEventListeners(@NotNull Canvas canvas, @NotNull Project project) {
+    private void attachEventListeners(@NotNull Canvas canvas) {
         MouseEventHandler mouseEventHandler = new MouseEventHandler();
-        mouseEventHandler.init(canvas, this, project);
+        mouseEventHandler.init(canvas);
         canvas.addMouseListener(mouseEventHandler);
         canvas.addMouseMotionListener(mouseEventHandler);
         canvas.addMouseWheelListener(mouseEventHandler);
@@ -379,18 +377,6 @@ public class CallGraphToolWindow {
             }
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-    }
-
-    void setFunctionDocCommentLabelText(@NotNull String text) {
-        this.functionDocCommentLabel.setText(text);
-    }
-
-    void setFunctionSignatureLabelText(@NotNull String text) {
-        this.functionSignatureLabel.setText(text);
-    }
-
-    void setFunctionFilePathLabelText(@NotNull String text) {
-        this.functionFilePathLabel.setText(text);
     }
 
     void focusNavigateTab() {

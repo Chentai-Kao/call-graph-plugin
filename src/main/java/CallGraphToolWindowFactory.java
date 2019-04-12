@@ -3,6 +3,7 @@ import com.intellij.openapi.wm.*;
 import com.intellij.ui.content.*;
 import org.jetbrains.annotations.NotNull;
 
+@SuppressWarnings({"WeakerAccess", "RedundantSuppression"})
 public class CallGraphToolWindowFactory implements com.intellij.openapi.wm.ToolWindowFactory {
     // Create the tool window content.
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {

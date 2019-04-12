@@ -1,3 +1,12 @@
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ProjectFileIndex;
+import com.intellij.openapi.vfs.VfsUtilCore;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiNamedElement;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -7,10 +16,13 @@ import java.awt.*;
 import java.awt.geom.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 class Canvas extends JPanel {
     private Graph graph;
     private JPanel canvasPanel;
+    private Project project;
     private Map<Shape, Node> nodeShapesMap;
     private Node hoveredNode;
     private Node clickedNode;
@@ -43,6 +55,12 @@ class Canvas extends JPanel {
     @NotNull
     Canvas setCanvasPanel(@NotNull JPanel canvasPanel) {
         this.canvasPanel = canvasPanel;
+        return this;
+    }
+
+    @NotNull
+    Canvas setProject(@NotNull Project project) {
+        this.project = project;
         return this;
     }
 
@@ -119,8 +137,49 @@ class Canvas extends JPanel {
                     Shape nodeShape = drawFunctionNode(graphics2D, nodeCenter, isHighlighted);
                     this.nodeShapesMap.put(nodeShape, node);
                     // draw label
-                    drawFunctionName(graphics2D, nodeCenter, node.getMethod().getName(), isHighlighted);
+                    Point2D labelCenterLeft = new Point2D.Float(
+                            (int) (nodeCenter.getX() + 2 * this.nodeDiameter),
+                            (int) nodeCenter.getY()
+                    );
+                    String label = isHighlighted ? getFunctionSignature(node) : node.getMethod().getName();
+                    drawText(graphics2D, labelCenterLeft, label, isHighlighted);
+                    // draw function file path for highlighted node
+                    if (isHighlighted) {
+                        Point2D filePathCenterLeft = new Point2D.Float(
+                                (int) (nodeCenter.getX() + 2 * this.nodeDiameter),
+                                (int) nodeCenter.getY() - 2 * this.nodeDiameter
+                        );
+                        String functionFilePath = getFunctionFilePath(node.getMethod());
+                        drawText(graphics2D, filePathCenterLeft, functionFilePath, true);
+                    }
                 });
+    }
+
+    @NotNull
+    private String getFunctionFilePath(@NotNull PsiElement psiElement) {
+        PsiFile psiFile = PsiTreeUtil.getParentOfType(psiElement, PsiFile.class);
+        if (psiFile != null) {
+            VirtualFile currentFile = psiFile.getVirtualFile();
+            VirtualFile rootFile =
+                    ProjectFileIndex.SERVICE.getInstance(this.project).getContentRootForFile(currentFile);
+            if (rootFile != null) {
+                String relativePath = VfsUtilCore.getRelativePath(currentFile, rootFile);
+                if (relativePath != null) {
+                    return relativePath;
+                }
+            }
+        }
+        return "";
+    }
+
+    @NotNull
+    private String getFunctionSignature(@NotNull Node node) {
+        PsiMethod method = node.getMethod();
+        String functionName = method.getName();
+        String functionParameters = Stream.of(method.getParameterList().getParameters())
+                .map(PsiNamedElement::getName)
+                .collect(Collectors.joining(", "));
+        return String.format("%s(%s)", functionName, functionParameters);
     }
 
     @NotNull
@@ -160,29 +219,29 @@ class Canvas extends JPanel {
         return shape;
     }
 
-    private void drawFunctionName(
+    private void drawText(
             Graphics2D graphics2D,
-            @NotNull Point2D nodeCenter,
+            @NotNull Point2D textCenterLeft,
             @NotNull String text,
             boolean isHighlighted) {
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
-        Point2D labelLowerLeft = new Point2D.Float(
-                (int) (nodeCenter.getX() + 2 * this.nodeDiameter),
-                (int) (nodeCenter.getY() + 0.5 * fontMetrics.getAscent() - 0.5 * fontMetrics.getDescent())
+        Point2D textLowerLeft = new Point2D.Float(
+                (int) textCenterLeft.getX(),
+                (int) (textCenterLeft.getY() + 0.5 * fontMetrics.getAscent() - 0.5 * fontMetrics.getDescent())
         );
         // draw text background
         Rectangle2D textBoundingBox = fontMetrics.getStringBounds(text, graphics2D);
         graphics2D.setColor(this.backgroundColor);
         graphics2D.fillRect(
-                (int) labelLowerLeft.getX(),
-                (int) labelLowerLeft.getY() - fontMetrics.getAscent(),
+                (int) textLowerLeft.getX(),
+                (int) textLowerLeft.getY() - fontMetrics.getAscent(),
                 (int) textBoundingBox.getWidth(),
                 (int) textBoundingBox.getHeight()
         );
         // draw text
         JBColor textColor = isHighlighted ? this.highlightedTextColor : this.unHighlightedTextColor;
         graphics2D.setColor(textColor);
-        graphics2D.drawString(text, (float) labelLowerLeft.getX(), (float) labelLowerLeft.getY());
+        graphics2D.drawString(text, (float) textLowerLeft.getX(), (float) textLowerLeft.getY());
     }
 
     private void drawLine(
