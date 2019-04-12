@@ -50,10 +50,8 @@ public class CallGraphToolWindow {
     private JComboBox<String> moduleScopeComboBox;
     private JTabbedPane mainTabbedPanel;
     private JCheckBox includeTestFilesCheckBox;
-    private JLabel loadingLabel;
-    private JLabel buildOptionContentLabel;
-    @SuppressWarnings("unused")
-    private JLabel buildOptionHeaderLabel;
+    private JLabel buildOptionLabel;
+    private JLabel statusLabel;
 
     private ProgressIndicator progressIndicator;
     private final float xGridRatio = 1.0f;
@@ -164,25 +162,25 @@ public class CallGraphToolWindow {
             case WHOLE_PROJECT_WITH_TEST:
                 // fall through
             case WHOLE_PROJECT_WITHOUT_TEST:
-                this.buildOptionContentLabel.setText(buildOption.getLabel());
+                setBuiltByLabel(buildOption.getLabel());
                 break;
             case MODULE:
                 String moduleName = (String) this.moduleScopeComboBox.getSelectedItem();
-                this.buildOptionContentLabel.setText(String.format("%s [%s]", buildOption.getLabel(), moduleName));
+                setBuiltByLabel(String.format("%s [%s]", buildOption.getLabel(), moduleName));
                 break;
             case DIRECTORY:
                 String path = this.directoryScopeTextField.getText();
-                this.buildOptionContentLabel.setText(String.format("%s [%s]", buildOption.getLabel(), path));
+                setBuiltByLabel(String.format("%s [%s]", buildOption.getLabel(), path));
                 break;
             default:
                 break;
         }
-        toggleLoadingLabel(true);
+        setStatusLabel("building graph...");
         this.canvasPanel.removeAll();
     }
 
     private void setUpLoadingEndUI() {
-        toggleLoadingLabel(false);
+        setStatusLabel("done");
     }
 
     @Nullable
@@ -269,7 +267,8 @@ public class CallGraphToolWindow {
                         method -> {
                             SearchScope searchScope = getSearchScope(project, method);
                             long start = new Date().getTime();
-                            Collection<PsiReference> references = ReferencesSearch.search(method, searchScope).findAll();
+                            Collection<PsiReference> references =
+                                    ReferencesSearch.search(method, searchScope).findAll();
                             long now = new Date().getTime();
                             System.out.printf("%d milliseconds for method %s\n", now - start, method.getName());
                             return references.stream()
@@ -409,8 +408,12 @@ public class CallGraphToolWindow {
         this.mainTabbedPanel.setSelectedIndex(1);
     }
 
-    private void toggleLoadingLabel(boolean isLoading) {
-        this.loadingLabel.setVisible(isLoading);
+    private void setBuiltByLabel(@NotNull String text) {
+        this.buildOptionLabel.setText(String.format("Built by: %s", text));
+    }
+
+    private void setStatusLabel(@NotNull String text) {
+        this.statusLabel.setText(String.format("Status: %s", text));
     }
 
     @NotNull
