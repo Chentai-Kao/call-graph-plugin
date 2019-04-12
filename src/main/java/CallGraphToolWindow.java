@@ -48,38 +48,30 @@ public class CallGraphToolWindow {
     private JRadioButton directoryScopeButton;
     private JTextField directoryScopeTextField;
     private JComboBox<String> moduleScopeComboBox;
-    private JRadioButton customScopeButton;
-    private JComboBox<String> customScopeComboBox;
     private JTabbedPane mainTabbedPanel;
+    private JCheckBox includeTestFilesCheckBox;
 
     private ProgressIndicator progressIndicator;
     private final float xGridRatio = 1.0f;
     private final float yGridRatio = 2.0f;
-    private enum CustomScopeOption {
-        PRODUCTION("Project production files"),
-        TEST("Project test files"),
-        CURRENT_FILE("Current file");
-
-        private final String text;
-
-        CustomScopeOption(@NotNull String text) {
-            this.text = text;
-        }
-
-        public String getText() {
-            return this.text;
-        }
-    }
 
     public CallGraphToolWindow() {
-        // set up custom scope drop-down menu
-        Stream.of(CustomScopeOption.values())
-                .forEach(customScopeOption -> this.customScopeComboBox.addItem(customScopeOption.getText()));
-
         // click handlers for buttons
         this.runButton.addActionListener(e -> run());
+        this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
         this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
+    }
+
+    void disableAllSecondaryOptions() {
+        this.includeTestFilesCheckBox.setEnabled(false);
+        this.moduleScopeComboBox.setEnabled(false);
+        this.directoryScopeTextField.setEnabled(false);
+    }
+
+    void projectScopeButtonHandler() {
+        disableAllSecondaryOptions();
+        this.includeTestFilesCheckBox.setEnabled(true);
     }
 
     void moduleScopeButtonHandler() {
@@ -89,6 +81,8 @@ public class CallGraphToolWindow {
             this.moduleScopeComboBox.removeAllItems();
             getActiveModules(project)
                     .forEach(module -> this.moduleScopeComboBox.addItem(module.getName()));
+            disableAllSecondaryOptions();
+            this.moduleScopeComboBox.setEnabled(true);
         }
     }
 
@@ -97,6 +91,8 @@ public class CallGraphToolWindow {
         if (project != null) {
             // set up directory option text field
             this.directoryScopeTextField.setText(project.getBasePath());
+            disableAllSecondaryOptions();
+            this.directoryScopeTextField.setEnabled(true);
         }
     }
 
@@ -181,14 +177,25 @@ public class CallGraphToolWindow {
     @NotNull
     private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project) {
         if (this.projectScopeButton.isSelected()) {
-            VirtualFile[] contentRoots = ProjectRootManager.getInstance(project).getContentRoots();
-            return new HashSet<>(Arrays.asList(contentRoots));
+            if (this.includeTestFilesCheckBox.isSelected()) {
+                // all files (including test files)
+                VirtualFile[] contentRoots = ProjectRootManager.getInstance(project).getContentRoots();
+                return new HashSet<>(Arrays.asList(contentRoots));
+            } else {
+                // source code files (excluding test files)
+                return getActiveModules(project)
+                        .stream()
+                        .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots(false)))
+                        .collect(Collectors.toSet());
+            }
         } else if (this.moduleScopeButton.isSelected()) {
+            // files in a specific module
             return getSelectedModules(project)
                     .stream()
                     .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots()))
                     .collect(Collectors.toSet());
         } else if (this.directoryScopeButton.isSelected()) {
+            // files under a path
             String path = this.directoryScopeTextField.getText();
             if (!path.isEmpty()) {
                 VirtualFile root = LocalFileSystem.getInstance().findFileByPath(path);
@@ -197,26 +204,6 @@ public class CallGraphToolWindow {
                 }
             }
             return Collections.emptySet();
-        } else if (this.customScopeButton.isSelected()) {
-            CustomScopeOption customScopeOption = getSelectedCustomScopeOption();
-            if (customScopeOption == CustomScopeOption.PRODUCTION) {
-                return getActiveModules(project)
-                        .stream()
-                        .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots(false)))
-                        .collect(Collectors.toSet());
-            } else if (customScopeOption == CustomScopeOption.TEST) {
-                return getActiveModules(project)
-                        .stream()
-                        .flatMap(module -> {
-                            VirtualFile[] sourceOnly = ModuleRootManager.getInstance(module).getSourceRoots(false);
-                            Set<VirtualFile> sourceOnlySet = new HashSet<>(Arrays.asList(sourceOnly));
-                            VirtualFile[] sourceAndTest = ModuleRootManager.getInstance(module).getSourceRoots(true);
-                            return Stream.of(sourceAndTest).filter(file -> !sourceOnlySet.contains(file));
-                        })
-                        .collect(Collectors.toSet());
-            } else if (customScopeOption == CustomScopeOption.CURRENT_FILE) {
-                System.out.println("(getSourceCodeRoots) current file option not implemented");
-            }
         }
         return Collections.emptySet();
     }
@@ -352,43 +339,25 @@ public class CallGraphToolWindow {
     @NotNull
     private SearchScope getSearchScope(@NotNull Project project, @NotNull PsiMethod method) {
         if (this.projectScopeButton.isSelected()) {
-            return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-        } else if (this.moduleScopeButton.isSelected()) {
-            Set<Module> selectedModules = getSelectedModules(project);
-            return new ModulesScope(selectedModules, project);
-        } else if (this.directoryScopeButton.isSelected()) {
-            System.out.println("(getSearchScope) Directory scope not implemented");
-        } else if (this.customScopeButton.isSelected()) {
-            CustomScopeOption customScopeOption = getSelectedCustomScopeOption();
-            if (customScopeOption == CustomScopeOption.PRODUCTION) {
+            if (this.includeTestFilesCheckBox.isSelected()) {
+                return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
+            } else {
                 GlobalSearchScope[] modulesScope = getActiveModules(project)
                         .stream()
                         .map(module -> module.getModuleScope(false))
                         .toArray(GlobalSearchScope[]::new);
                 return GlobalSearchScope.union(modulesScope);
-            } else if (customScopeOption == CustomScopeOption.TEST) {
-                GlobalSearchScope[] modulesScope = getActiveModules(project)
-                        .stream()
-                        .map(Module::getModuleScope)
-                        .toArray(GlobalSearchScope[]::new);
-                return GlobalSearchScope.union(modulesScope);
-            } else if (customScopeOption == CustomScopeOption.CURRENT_FILE) {
-                return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
             }
+        } else if (this.moduleScopeButton.isSelected()) {
+            Set<Module> selectedModules = getSelectedModules(project);
+            return new ModulesScope(selectedModules, project);
+        } else if (this.directoryScopeButton.isSelected()) {
+            System.out.println("(getSearchScope) Directory scope not implemented");
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
     }
 
     void focusNavigateTab() {
         this.mainTabbedPanel.setSelectedIndex(1);
-    }
-
-    @Nullable
-    private CustomScopeOption getSelectedCustomScopeOption() {
-        String selectedOptionText = (String) this.customScopeComboBox.getSelectedItem();
-        return Arrays.stream(CustomScopeOption.values())
-                .filter(option -> option.getText().equals(selectedOptionText))
-                .findFirst()
-                .orElse(null);
     }
 }
