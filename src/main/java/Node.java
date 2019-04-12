@@ -1,6 +1,7 @@
 import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.geom.Point2D;
 import java.util.*;
 
 class Node {
@@ -20,12 +21,9 @@ class Node {
         this.y = y;
     }
 
-    float getX() {
-        return this.x;
-    }
-
-    float getY() {
-        return this.y;
+    @NotNull
+    Point2D getPoint() {
+        return new Point2D.Float(this.x, this.y);
     }
 
     void addLeavingEdge(@NotNull Edge edge) {

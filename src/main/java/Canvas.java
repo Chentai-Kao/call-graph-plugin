@@ -14,7 +14,9 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.*;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -32,17 +34,11 @@ class Canvas extends JPanel {
     private final int nodeDiameter = 2 * nodeRadius;
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
-    private final Stroke dashedLineStroke = new BasicStroke(
-            regularLineWidth,
-            BasicStroke.CAP_BUTT,
-            BasicStroke.JOIN_MITER,
-            10.0f,
-            new float[] { 5.0f },
-            0.0f
-    );
     private final JBColor backgroundColor = JBColor.WHITE;
-    private final JBColor unHighlightedLineColor = JBColor.LIGHT_GRAY;
+    private final JBColor unHighlightedColor = JBColor.LIGHT_GRAY;
     private final JBColor highlightedLineColor = JBColor.BLACK;
+    private final JBColor highlightedUpstreamColor = JBColor.ORANGE;
+    private final JBColor highlightedDownstreamColor = JBColor.GREEN;
     private final JBColor unHighlightedTextColor = JBColor.DARK_GRAY;
     private final JBColor highlightedTextColor = JBColor.BLACK;
 
@@ -113,17 +109,18 @@ class Canvas extends JPanel {
                 .forEach(edge -> {
                     Node sourceNode = edge.getSourceNode();
                     Node targetNode = edge.getTargetNode();
-                    Point2D sourceNodeCenter = toCameraView(new Point2D.Float(sourceNode.getX(), sourceNode.getY()));
+                    Point2D sourceNodeCenter = toCameraView(sourceNode.getPoint());
                     boolean isHighlighted = isNodeHighlighted(sourceNode) || isNodeHighlighted(targetNode);
                     if (sourceNode == targetNode) {
                         // recursive function call, draw self loop
                         drawSelfLoop(graphics2D, sourceNodeCenter, isHighlighted);
                     } else {
                         // non recursive function call, draw line (dashed if call looks backward on the graph)
-                        Point2D targetNodeCenter =
-                                toCameraView(new Point2D.Float(targetNode.getX(), targetNode.getY()));
-                        boolean isDashed = sourceNodeCenter.getX() > targetNodeCenter.getX();
-                        drawLine(graphics2D, sourceNodeCenter, targetNodeCenter, isDashed, isHighlighted);
+                        Point2D targetNodeCenter = toCameraView(targetNode.getPoint());
+                        JBColor highlightedColor = isNodeHighlighted(sourceNode) ?
+                                this.highlightedDownstreamColor : this.highlightedUpstreamColor;
+                        drawLine(graphics2D, sourceNodeCenter, targetNodeCenter, isHighlighted, highlightedColor);
+                        drawLineArrow(graphics2D, sourceNodeCenter, targetNodeCenter, isHighlighted, highlightedColor);
                     }
                 });
 
@@ -131,7 +128,7 @@ class Canvas extends JPanel {
         this.nodeShapesMap = new HashMap<>();
         this.graph.getNodes()
                 .forEach(node -> {
-                    Point2D nodeCenter = toCameraView(new Point2D.Float(node.getX(), node.getY()));
+                    Point2D nodeCenter = toCameraView(node.getPoint());
                     // draw node
                     boolean isHighlighted = isNodeHighlighted(node);
                     Shape nodeShape = drawFunctionNode(graphics2D, nodeCenter, isHighlighted);
@@ -211,7 +208,7 @@ class Canvas extends JPanel {
         graphics2D.setColor(JBColor.WHITE);
         graphics2D.fill(shape);
         // draw the outline
-        JBColor outlineColor = isHighlighted ? this.highlightedLineColor : this.unHighlightedLineColor;
+        JBColor outlineColor = isHighlighted ? this.highlightedLineColor : this.unHighlightedColor;
         graphics2D.setColor(outlineColor);
         Shape strokedShape = this.solidLineStroke.createStrokedShape(shape);
         graphics2D.draw(strokedShape);
@@ -248,40 +245,100 @@ class Canvas extends JPanel {
             Graphics2D graphics2D,
             @NotNull Point2D sourcePoint,
             @NotNull Point2D targetPoint,
-            boolean isDashed,
-            boolean isHighlighted) {
+            boolean isHighlighted,
+            @NotNull JBColor highlightedColor) {
         Line2D shape = new Line2D.Float(sourcePoint, targetPoint);
-        Stroke stroke = isDashed ? this.dashedLineStroke : this.solidLineStroke;
-        Shape strokedShape = stroke.createStrokedShape(shape);
-        JBColor lineColor = isHighlighted ? this.highlightedLineColor : this.unHighlightedLineColor;
+        Shape strokedShape = this.solidLineStroke.createStrokedShape(shape);
+        JBColor lineColor = isHighlighted ? highlightedColor : this.unHighlightedColor;
         graphics2D.setColor(lineColor);
         graphics2D.draw(strokedShape);
     }
 
-    private void drawSelfLoop(
-            Graphics2D graphics2D,
-            @NotNull Point2D nodeCenter,
-            boolean isHighlighted) {
-        // create node shape
+    private void drawSelfLoop(@NotNull Graphics2D graphics2D, @NotNull Point2D nodeCenter, boolean isHighlighted) {
+        // draw circle shape
         int selfLoopRadius = 10;
         int selfLoopDiameter = 2 * selfLoopRadius;
         Point2D loopUpperLeft = new Point2D.Float(
                 (float) nodeCenter.getX() - selfLoopRadius,
                 (float) nodeCenter.getY() - selfLoopDiameter
         );
-        Arc2D shape = new Arc2D.Float(
+        Arc2D upstreamHalfArc = new Arc2D.Float(
                 (float) loopUpperLeft.getX(),
                 (float) loopUpperLeft.getY(),
                 selfLoopDiameter,
                 selfLoopDiameter,
-                0.0f,
-                360.0f,
+                90.0f,
+                180.0f,
                 Arc2D.OPEN
         );
-        Shape strokedShape = this.dashedLineStroke.createStrokedShape(shape);
-        JBColor arcColor = isHighlighted ? this.highlightedLineColor : this.unHighlightedLineColor;
-        graphics2D.setColor(arcColor);
-        graphics2D.draw(strokedShape);
+        Arc2D downstreamHalfArc = new Arc2D.Float(
+                (float) loopUpperLeft.getX(),
+                (float) loopUpperLeft.getY(),
+                selfLoopDiameter,
+                selfLoopDiameter,
+                270.0f,
+                180.0f,
+                Arc2D.OPEN
+        );
+        Shape strokedUpstreamHalfShape = this.solidLineStroke.createStrokedShape(upstreamHalfArc);
+        Shape strokedDownstreamHalfShape = this.solidLineStroke.createStrokedShape(downstreamHalfArc);
+        JBColor upstreamHalfLoopColor = isHighlighted ? this.highlightedUpstreamColor : this.unHighlightedColor;
+        JBColor downstreamHalfLoopColor = isHighlighted ? this.highlightedDownstreamColor : this.unHighlightedColor;
+        graphics2D.setColor(upstreamHalfLoopColor);
+        graphics2D.draw(strokedUpstreamHalfShape);
+        graphics2D.setColor(downstreamHalfLoopColor);
+        graphics2D.draw(strokedDownstreamHalfShape);
+        // draw arrow
+        Point2D arrowCenter = new Point2D.Double(nodeCenter.getX(), nodeCenter.getY() - selfLoopDiameter);
+        drawArrow(graphics2D, arrowCenter, Math.PI, downstreamHalfLoopColor);
+    }
+
+    private void drawLineArrow(
+            @NotNull Graphics2D graphics2D,
+            @NotNull Point2D sourcePoint,
+            @NotNull Point2D targetPoint,
+            boolean isHighlighted,
+            @NotNull JBColor highlightedColor) {
+        double dx = targetPoint.getX() - sourcePoint.getX();
+        double dy = targetPoint.getY() - sourcePoint.getY();
+        double angle = Math.atan2(dy, dx);
+        Point2D arrowCenter = new Point2D.Double(
+                0.5 * (sourcePoint.getX() + targetPoint.getX()),
+                0.5 * (sourcePoint.getY() + targetPoint.getY())
+        );
+        JBColor arrowColor = isHighlighted ? highlightedColor : this.unHighlightedColor;
+        drawArrow(graphics2D, arrowCenter, angle, arrowColor);
+    }
+
+    private void drawArrow(
+            @NotNull Graphics2D graphics2D,
+            @NotNull Point2D center,
+            double angle,
+            @NotNull JBColor arrowColor) {
+        long arrowSize = 5;
+        Point2D midPoint = new Point2D.Double(
+                center.getX() + arrowSize * Math.cos(angle),
+                center.getY() + arrowSize * Math.sin(angle)
+        );
+        double upperTipAngle = angle + Math.PI * 2 / 3;
+        Point2D upperTipPoint = new Point2D.Double(
+                center.getX() + arrowSize * Math.cos(upperTipAngle),
+                center.getY() + arrowSize * Math.sin(upperTipAngle)
+        );
+        double lowerTipAngle = angle - Math.PI * 2 / 3;
+        Point2D lowerTipPoint = new Point2D.Double(
+                center.getX() + arrowSize * Math.cos(lowerTipAngle),
+                center.getY() + arrowSize * Math.sin(lowerTipAngle)
+        );
+        List<Point2D> points = Arrays.asList(midPoint, upperTipPoint, lowerTipPoint, midPoint);
+        int[] xPoints = points.stream()
+                .mapToInt(point -> (int) Math.round(point.getX()))
+                .toArray();
+        int[] yPoints = points.stream()
+                .mapToInt(point -> (int) Math.round(point.getY()))
+                .toArray();
+        graphics2D.setColor(arrowColor);
+        graphics2D.fillPolygon(xPoints, yPoints, xPoints.length);
     }
 
     void setHoveredNode(@Nullable Node node) {
