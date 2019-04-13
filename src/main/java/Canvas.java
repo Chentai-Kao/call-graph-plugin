@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 class Canvas extends JPanel {
     private Graph graph;
     private JPanel canvasPanel;
+    private CallGraphToolWindow callGraphToolWindow;
     private Project project;
     private Map<Shape, Node> nodeShapesMap;
     private Node hoveredNode;
@@ -51,6 +52,12 @@ class Canvas extends JPanel {
     @NotNull
     Canvas setCanvasPanel(@NotNull JPanel canvasPanel) {
         this.canvasPanel = canvasPanel;
+        return this;
+    }
+
+    @NotNull
+    Canvas setCallGraphToolWindow(@NotNull CallGraphToolWindow callGraphToolWindow) {
+        this.callGraphToolWindow = callGraphToolWindow;
         return this;
     }
 
@@ -353,6 +360,12 @@ class Canvas extends JPanel {
             this.clickedNode = node;
             repaint();
         }
+        this.callGraphToolWindow.setClickedNode(node);
+    }
+
+    @NotNull
+    Node getClickedNode() {
+        return this.clickedNode;
     }
 
     private boolean isNodeHighlighted(@NotNull Node node) {

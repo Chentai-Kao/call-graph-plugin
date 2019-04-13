@@ -51,16 +51,23 @@ public class CallGraphToolWindow {
     private JTabbedPane mainTabbedPanel;
     private JCheckBox includeTestFilesCheckBox;
     private JLabel buildOptionLabel;
-    private JLabel statusLabel;
+    private JProgressBar loadingProgressBar;
+    private JButton showOnlyUpstreamButton;
+    private JButton showOnlyDownstreamButton;
+    private JButton showOnlyUpstreamDownstreamButton;
 
     private ProgressIndicator progressIndicator;
+    private Node clickedNode;
     private final float xGridRatio = 1.0f;
     private final float yGridRatio = 2.0f;
     private enum BuildOption {
         WHOLE_PROJECT_WITH_TEST("Whole project (test files included)"),
         WHOLE_PROJECT_WITHOUT_TEST("Whole project (test files excluded)"),
         MODULE("Module"),
-        DIRECTORY("Directory");
+        DIRECTORY("Directory"),
+        UPSTREAM("Only upstream"),
+        DOWNSTREAM("Only downstream"),
+        UPSTREAM_DOWNSTREAM("Only upstream & downstream");
 
         private final String label;
 
@@ -80,6 +87,10 @@ public class CallGraphToolWindow {
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
         this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
+        this.showOnlyUpstreamButton.addActionListener(e -> showGraphForSingleMethod(BuildOption.UPSTREAM));
+        this.showOnlyDownstreamButton.addActionListener(e -> showGraphForSingleMethod(BuildOption.DOWNSTREAM));
+        this.showOnlyUpstreamDownstreamButton
+                .addActionListener(e -> showGraphForSingleMethod(BuildOption.UPSTREAM_DOWNSTREAM));
     }
 
     void disableAllSecondaryOptions() {
@@ -128,22 +139,36 @@ public class CallGraphToolWindow {
                 new Task.Backgroundable(project, "Call Graph") {
                     public void run(@NotNull ProgressIndicator progressIndicator) {
                         ApplicationManager.getApplication()
-                                .runReadAction(() -> main(project));
+                                .runReadAction(() -> showGraphForEntireProject(project));
                     }
                 }
         );
     }
 
-    public void main(@NotNull Project project) {
-        setUpLoadingStartUI();
-        this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
-        System.out.println("--- getting source code files ---");
-        Set<PsiFile> sourceCodeFiles = getSourceCodeFiles(project);
-        System.out.println(String.format("found %d files", sourceCodeFiles.size()));
-        System.out.println("--- getting method references ---");
-        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMap(project, sourceCodeFiles);
-        System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
-                methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
+    public void showGraphForEntireProject(@NotNull Project project) {
+        prepareStart();
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMapForEntireProject(project);
+        visualizeCallGraph(project, methodCallersMap);
+        prepareEnd();
+    }
+
+    public void showGraphForSingleMethod(@NotNull BuildOption buildOption) {
+        Project project = getActiveProject();
+        if (project != null && this.clickedNode != null) {
+            PsiMethod focusedMethod = this.clickedNode.getMethod();
+            prepareStart();
+            Map<PsiMethod, Set<PsiMethod>> methodCallersMap =
+                    getMethodCallersMapForSingleMethod(focusedMethod, buildOption);
+            System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
+                    methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
+            visualizeCallGraph(project, methodCallersMap);
+            prepareEnd();
+        }
+    }
+
+    private void visualizeCallGraph(
+            @NotNull Project project,
+            @NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
         System.out.println("--- building graph ---");
         Graph graph = buildGraph(methodCallersMap);
         System.out.println("--- getting layout from GraphViz ---");
@@ -152,10 +177,10 @@ public class CallGraphToolWindow {
         Canvas canvas = renderGraphOnCanvas(graph, project);
         System.out.println("--- attaching event listeners ---");
         attachEventListeners(canvas);
-        setUpLoadingEndUI();
     }
 
-    private void setUpLoadingStartUI() {
+    private void prepareStart() {
+        this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
         focusGraphTab();
         BuildOption buildOption = getSelectedBuildOption();
         switch (buildOption) {
@@ -175,12 +200,12 @@ public class CallGraphToolWindow {
             default:
                 break;
         }
-        setStatusLabel("building graph...");
+        this.loadingProgressBar.setVisible(true);
         this.canvasPanel.removeAll();
     }
 
-    private void setUpLoadingEndUI() {
-        setStatusLabel("done");
+    private void prepareEnd() {
+        this.loadingProgressBar.setVisible(false);
     }
 
     @Nullable
@@ -198,28 +223,6 @@ public class CallGraphToolWindow {
     @NotNull
     private List<Module> getActiveModules(@NotNull Project project) {
         return Arrays.asList(ModuleManager.getInstance(project).getModules());
-    }
-
-    @NotNull
-    private Set<PsiFile> getSourceCodeFiles(@NotNull Project project) {
-        return getSourceCodeRoots(project)
-                .stream()
-                .flatMap(contentSourceRoot -> {
-                    List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
-                    ContentIterator contentIterator = child -> {
-                        if (child.isValid() && !child.isDirectory()) {
-                            String extension = Optional.ofNullable(child.getExtension()).orElse("");
-                            if (extension.equals("java")) {
-                                childrenVirtualFiles.add(child);
-                            }
-                        }
-                        return true;
-                    };
-                    VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
-                    return childrenVirtualFiles.stream()
-                            .map(file -> PsiManager.getInstance(project).findFile(file));
-                })
-                .collect(Collectors.toSet());
     }
 
     @NotNull
@@ -254,10 +257,141 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMap(
-            @NotNull Project project,
-            @NotNull Set<PsiFile> sourceCodeFiles) {
-        Set<PsiMethod> allMethods = sourceCodeFiles.stream()
+    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForSingleMethod(
+            @NotNull PsiMethod focusedMethod,
+            @NotNull BuildOption buildOption) {
+        Set<PsiMethod> startingMethods = Stream.of(focusedMethod).collect(Collectors.toSet());
+        // upstream mapping of { callee => callers }
+        Map<PsiMethod, Set<PsiMethod>> upstreamMethodCallersMap =
+                buildOption == BuildOption.UPSTREAM || buildOption == BuildOption.UPSTREAM_DOWNSTREAM ?
+                        getUpstreamMethodCallersMap(startingMethods, new HashSet<>()) :
+                        Collections.emptyMap();
+        // downstream mapping of { caller => callees }
+        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap =
+                buildOption == BuildOption.DOWNSTREAM || buildOption == BuildOption.UPSTREAM_DOWNSTREAM ?
+                        getDownstreamMethodCalleesMap(startingMethods, new HashSet<>()) :
+                        Collections.emptyMap();
+        // reverse the key value relation of downstream mapping from { caller => callees } to { callee => callers }
+        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCallersMap = downstreamMethodCalleesMap.entrySet()
+                .stream()
+                .flatMap(entry -> {
+                    PsiMethod caller = entry.getKey();
+                    Set<PsiMethod> callees = entry.getValue();
+                    return callees.stream().map(callee ->
+                            new AbstractMap.SimpleEntry<>(callee, new HashSet<>(Collections.singletonList(caller))));
+                })
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
+                ));
+        return Stream
+                .concat(upstreamMethodCallersMap.entrySet().stream(), downstreamMethodCallersMap.entrySet().stream())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
+                ));
+    }
+
+    @NotNull
+    private Map<PsiMethod, Set<PsiMethod>> getUpstreamMethodCallersMap(
+            @NotNull Set<PsiMethod> methods,
+            @NotNull Set<PsiMethod> seenMethods) {
+        if (methods.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<PsiMethod, Set<PsiMethod>> directUpstream = methods.stream()
+                .collect(Collectors.toMap(
+                        method -> method,
+                        method -> {
+                            SearchScope searchScope =
+                                    GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
+                            Collection<PsiReference> references =
+                                    ReferencesSearch.search(method, searchScope).findAll();
+                            return references.stream()
+                                    .map(reference ->
+                                            PsiTreeUtil.getParentOfType(reference.getElement(), PsiMethod.class)
+                                    )
+                                    .filter(Objects::nonNull)
+                                    .collect(Collectors.toSet());
+                        }
+                ));
+        seenMethods.addAll(methods);
+        Set<PsiMethod> parents = directUpstream.values()
+                .stream()
+                .flatMap(Collection::stream)
+                .filter(parent -> !seenMethods.contains(parent))
+                .collect(Collectors.toSet());
+        Map<PsiMethod, Set<PsiMethod>> indirectUpstream = getUpstreamMethodCallersMap(parents, seenMethods);
+        return Stream.concat(directUpstream.entrySet().stream(), indirectUpstream.entrySet().stream())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
+                ));
+    }
+
+    @NotNull
+    private Map<PsiMethod, Set<PsiMethod>> getDownstreamMethodCalleesMap(
+            @NotNull Set<PsiMethod> methods,
+            @NotNull Set<PsiMethod> seenMethods) {
+        if (methods.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<PsiMethod, Set<PsiMethod>> directDownstream = methods.stream()
+                .collect(Collectors.toMap(
+                        method -> method,
+                        method -> {
+                            Collection<PsiIdentifier> identifiers =
+                                    PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class);
+                            return identifiers.stream()
+                                    .map(PsiElement::getContext)
+                                    .filter(Objects::nonNull)
+                                    .flatMap(context -> Arrays.stream(context.getReferences()))
+                                    .map(PsiReference::resolve)
+                                    .filter(psiElement -> psiElement instanceof PsiMethod)
+                                    .map(psiElement -> (PsiMethod) psiElement)
+                                    .collect(Collectors.toSet());
+                        }
+                ));
+        seenMethods.addAll(methods);
+        Set<PsiMethod> children = directDownstream.values()
+                .stream()
+                .flatMap(Collection::stream)
+                .filter(child -> !seenMethods.contains(child))
+                .collect(Collectors.toSet());
+        Map<PsiMethod, Set<PsiMethod>> indirectDownstream = getDownstreamMethodCalleesMap(children, seenMethods);
+        return Stream.concat(directDownstream.entrySet().stream(), indirectDownstream.entrySet().stream())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
+                ));
+    }
+
+    @NotNull
+    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(@NotNull Project project) {
+        System.out.println("--- getting method references ---");
+        Set<PsiFile> allFiles = getSourceCodeRoots(project)
+                .stream()
+                .flatMap(contentSourceRoot -> {
+                    List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
+                    ContentIterator contentIterator = child -> {
+                        if (child.isValid() && !child.isDirectory()) {
+                            String extension = Optional.ofNullable(child.getExtension()).orElse("");
+                            if (extension.equals("java")) {
+                                childrenVirtualFiles.add(child);
+                            }
+                        }
+                        return true;
+                    };
+                    VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
+                    return childrenVirtualFiles.stream()
+                            .map(file -> PsiManager.getInstance(project).findFile(file));
+                })
+                .collect(Collectors.toSet());
+        Set<PsiMethod> allMethods = allFiles.stream()
                 .flatMap(psiFile -> Stream.of(((PsiJavaFile)psiFile).getClasses())) // get all classes
                 .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
@@ -296,7 +430,8 @@ public class CallGraphToolWindow {
         Canvas canvas = new Canvas()
                 .setGraph(graph)
                 .setCanvasPanel(this.canvasPanel)
-                .setProject(project);
+                .setProject(project)
+                .setCallGraphToolWindow(this);
         this.canvasPanel.add(canvas);
         this.canvasPanel.updateUI();
         return canvas;
@@ -409,11 +544,7 @@ public class CallGraphToolWindow {
     }
 
     private void setBuiltByLabel(@NotNull String text) {
-        this.buildOptionLabel.setText(String.format("Built by: %s", text));
-    }
-
-    private void setStatusLabel(@NotNull String text) {
-        this.statusLabel.setText(String.format("Status: %s", text));
+        this.buildOptionLabel.setText(String.format("Source: %s", text));
     }
 
     @NotNull
@@ -430,5 +561,13 @@ public class CallGraphToolWindow {
             return BuildOption.DIRECTORY;
         }
         return BuildOption.WHOLE_PROJECT_WITH_TEST;
+    }
+
+    public void setClickedNode(@Nullable Node node) {
+        this.clickedNode = node;
+        boolean isEnabled = node != null;
+        this.showOnlyUpstreamButton.setEnabled(isEnabled);
+        this.showOnlyDownstreamButton.setEnabled(isEnabled);
+        this.showOnlyUpstreamDownstreamButton.setEnabled(isEnabled);
     }
 }

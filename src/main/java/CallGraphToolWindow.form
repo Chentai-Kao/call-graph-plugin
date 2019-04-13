@@ -102,7 +102,7 @@
               </component>
             </children>
           </grid>
-          <grid id="bbb7" layout-manager="GridLayoutManager" row-count="2" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+          <grid id="bbb7" layout-manager="GridLayoutManager" row-count="3" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
             <margin top="0" left="0" bottom="0" right="0"/>
             <constraints>
               <tabbedpane title="Graph"/>
@@ -112,7 +112,7 @@
             <children>
               <grid id="e4dd" binding="canvasPanel" layout-manager="BorderLayout" hgap="0" vgap="0">
                 <constraints>
-                  <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                  <grid row="2" column="0" row-span="1" col-span="2" vsize-policy="7" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                 </constraints>
                 <properties>
                   <toolTipText value=""/>
@@ -126,26 +126,76 @@
                   <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                 </constraints>
                 <properties/>
-                <border type="none"/>
+                <border type="etched" title="Info">
+                  <title-color color="-8355712"/>
+                </border>
                 <children>
                   <component id="87aa" class="javax.swing.JLabel" binding="buildOptionLabel">
                     <constraints>
                       <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
                     </constraints>
                     <properties>
-                      <text value="Built by: ..."/>
+                      <text value="Source: ..."/>
                     </properties>
                   </component>
-                  <component id="55db0" class="javax.swing.JLabel" binding="statusLabel">
+                  <vspacer id="7d00a">
                     <constraints>
-                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                  </vspacer>
+                </children>
+              </grid>
+              <grid id="d029a" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                <margin top="0" left="0" bottom="0" right="0"/>
+                <constraints>
+                  <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <enabled value="true"/>
+                </properties>
+                <border type="etched" title="Filters">
+                  <title-color color="-8355712"/>
+                </border>
+                <children>
+                  <component id="39a2a" class="javax.swing.JButton" binding="showOnlyUpstreamButton" default-binding="true">
+                    <constraints>
+                      <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
                     </constraints>
                     <properties>
-                      <text value="Status: ..."/>
+                      <enabled value="false"/>
+                      <text value="Show only &amp;upstream"/>
+                    </properties>
+                  </component>
+                  <component id="9d304" class="javax.swing.JButton" binding="showOnlyDownstreamButton" default-binding="true">
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <enabled value="false"/>
+                      <text value="Show &amp;only downstream"/>
+                    </properties>
+                  </component>
+                  <component id="a36f9" class="javax.swing.JButton" binding="showOnlyUpstreamDownstreamButton" default-binding="true">
+                    <constraints>
+                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <enabled value="false"/>
+                      <text value="&amp;Show only upstream and downstream"/>
                     </properties>
                   </component>
                 </children>
               </grid>
+              <component id="3d471" class="javax.swing.JProgressBar" binding="loadingProgressBar">
+                <constraints>
+                  <grid row="1" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="6" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <enabled value="true"/>
+                  <indeterminate value="true"/>
+                  <visible value="false"/>
+                </properties>
+              </component>
             </children>
           </grid>
         </children>
