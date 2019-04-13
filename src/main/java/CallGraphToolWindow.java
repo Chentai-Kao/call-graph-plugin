@@ -173,11 +173,8 @@ public class CallGraphToolWindow {
 
     public void showGraphForSingleMethod(@NotNull Project project, @NotNull BuildOption buildOption) {
         prepareStart();
-        PsiMethod focusedMethod = this.clickedNode.getMethod();
         Map<PsiMethod, Set<PsiMethod>> methodCallersMap =
-                getMethodCallersMapForSingleMethod(focusedMethod, buildOption);
-        System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
-                methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
+                getMethodCallersMapForSingleMethod(this.clickedNode.getMethod(), buildOption);
         visualizeCallGraph(project, methodCallersMap);
         prepareEnd();
     }
@@ -420,11 +417,8 @@ public class CallGraphToolWindow {
                         method -> method,
                         method -> {
                             SearchScope searchScope = getSearchScope(project, method, buildOption);
-                            long start = new Date().getTime();
                             Collection<PsiReference> references =
                                     ReferencesSearch.search(method, searchScope).findAll();
-                            long now = new Date().getTime();
-                            System.out.printf("%d milliseconds for method %s\n", now - start, method.getName());
                             incrementDeterminateProgressBar();
                             return references.stream()
                                     .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
