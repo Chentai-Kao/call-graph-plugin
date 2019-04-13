@@ -35,11 +35,11 @@ class Canvas extends JPanel {
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
     private final JBColor backgroundColor = JBColor.WHITE;
     private final JBColor unHighlightedColor = JBColor.LIGHT_GRAY;
-    private final JBColor highlightedLineColor = JBColor.BLACK;
+    private final JBColor highlightedLineColor = JBColor.BLUE;
     private final JBColor highlightedUpstreamColor = JBColor.ORANGE;
     private final JBColor highlightedDownstreamColor = JBColor.GREEN;
     private final JBColor unHighlightedTextColor = JBColor.DARK_GRAY;
-    private final JBColor highlightedTextColor = JBColor.BLACK;
+    private final JBColor highlightedTextColor = JBColor.BLUE;
 
     @NotNull
     Canvas setGraph(@NotNull Graph graph) {
@@ -122,7 +122,7 @@ class Canvas extends JPanel {
                         !isNodeHighlighted(edge.getSourceNode()) && !isNodeHighlighted(edge.getTargetNode()))
                 .forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.unHighlightedColor));
 
-        // draw highlighted upstream and downstream edges
+        // draw upstream and downstream edges
         Collection<Edge> upstreamEdges = this.graph.getEdges()
                 .stream()
                 .filter(edge -> isNodeHighlighted(edge.getTargetNode()) && edge.getSourceNode() != edge.getTargetNode())
@@ -155,7 +155,7 @@ class Canvas extends JPanel {
                     this.nodeShapesMap.put(nodeShape, node);
                 });
 
-        // draw highlighted upstream and downstream nodes
+        // draw upstream and downstream nodes
         upstreamNodes.forEach(node -> {
             Shape nodeShape = drawNode(graphics2D, node, this.highlightedUpstreamColor);
             this.nodeShapesMap.put(nodeShape, node);
