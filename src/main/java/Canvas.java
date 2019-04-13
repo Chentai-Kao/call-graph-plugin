@@ -34,8 +34,8 @@ class Canvas extends JPanel {
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
     private final Color backgroundColor = new JBColor(new Color(0xfdfeff), new Color(0x292b2d));
-    private final Color unHighlightedColor = new JBColor(new Color(0xf2f2f2), new Color(0x5A5D5F));
-    private final Color unHighlightedTextColor = new JBColor(new Color(0xcdcecf), new Color(0x808282));
+    private final Color unHighlightedColor = new JBColor(new Color(0xC9CACB), new Color(0x5A5D5F));
+    private final Color unHighlightedTextColor = new JBColor(new Color(0x767778), new Color(0x808282));
     private final Color highlightedColor = new JBColor(new Color(0x4285f4), new Color(0x376CCF));
     private final Color upstreamColor = new JBColor(new Color(0xfbbc05), new Color(0xbe9117));
     private final Color downstreamColor = new JBColor(new Color(0x34a853), new Color(0x31813E));
