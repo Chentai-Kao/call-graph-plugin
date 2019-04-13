@@ -7,6 +7,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,7 +19,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@SuppressWarnings("UseJBColor")
 class Canvas extends JPanel {
     private Graph graph;
     private JPanel canvasPanel;
@@ -33,12 +33,12 @@ class Canvas extends JPanel {
     private final int nodeDiameter = 2 * nodeRadius;
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
-    private final Color backgroundColor = Color.WHITE;
-    private final Color unHighlightedColor = new Color(223, 225, 229);
-    private final Color highlightedColor = new Color(66, 133, 244);
-    private final Color highlightedUpstreamColor = new Color(251, 188, 5);
-    private final Color highlightedDownstreamColor = new Color(52, 168, 83);
-    private final Color unHighlightedTextColor = new Color(84, 86, 88);
+    private final Color backgroundColor = new JBColor(new Color(0xfdfeff), new Color(0x292b2d));
+    private final Color unHighlightedColor = new JBColor(new Color(0xf2f2f2), new Color(0x5A5D5F));
+    private final Color unHighlightedTextColor = new JBColor(new Color(0xcdcecf), new Color(0x808282));
+    private final Color highlightedColor = new JBColor(new Color(0x4285f4), new Color(0x376CCF));
+    private final Color upstreamColor = new JBColor(new Color(0xfbbc05), new Color(0xbe9117));
+    private final Color downstreamColor = new JBColor(new Color(0x34a853), new Color(0x31813E));
 
     @NotNull
     Canvas setGraph(@NotNull Graph graph) {
@@ -130,8 +130,8 @@ class Canvas extends JPanel {
                 .stream()
                 .filter(edge -> isNodeHighlighted(edge.getSourceNode()) && edge.getSourceNode() != edge.getTargetNode())
                 .collect(Collectors.toSet());
-        upstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.highlightedUpstreamColor));
-        downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.highlightedDownstreamColor));
+        upstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.upstreamColor));
+        downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.downstreamColor));
 
         // draw un-highlighted labels
         Collection<Node> upstreamNodes =
@@ -157,15 +157,15 @@ class Canvas extends JPanel {
 
         // draw upstream/downstream label and nodes
         upstreamNodes.forEach(node -> drawNodeLabel(
-                graphics2D, node, node.getMethod().getName(), this.highlightedUpstreamColor));
+                graphics2D, node, node.getMethod().getName(), this.upstreamColor));
         downstreamNodes.forEach(node -> drawNodeLabel(
-                graphics2D, node, node.getMethod().getName(), this.highlightedDownstreamColor));
+                graphics2D, node, node.getMethod().getName(), this.downstreamColor));
         upstreamNodes.forEach(node -> {
-            Shape nodeShape = drawNode(graphics2D, node, this.highlightedUpstreamColor);
+            Shape nodeShape = drawNode(graphics2D, node, this.upstreamColor);
             this.nodeShapesMap.put(nodeShape, node);
         });
         downstreamNodes.forEach(node -> {
-            Shape nodeShape = drawNode(graphics2D, node, this.highlightedDownstreamColor);
+            Shape nodeShape = drawNode(graphics2D, node, this.downstreamColor);
             this.nodeShapesMap.put(nodeShape, node);
         });
 
@@ -242,11 +242,12 @@ class Canvas extends JPanel {
     @NotNull
     private String getFunctionSignature(@NotNull Node node) {
         PsiMethod method = node.getMethod();
-        String functionName = method.getName();
-        String functionParameters = Stream.of(method.getParameterList().getParameters())
+        String name = method.getName();
+        String parameterNames = Stream.of(method.getParameterList().getParameters())
                 .map(PsiNamedElement::getName)
                 .collect(Collectors.joining(", "));
-        return String.format("%s(%s)", functionName, functionParameters);
+        String parameters = parameterNames.isEmpty() ? "" : String.format("(%s)", parameterNames);
+        return String.format("%s%s", name, parameters);
     }
 
     @NotNull
@@ -277,7 +278,7 @@ class Canvas extends JPanel {
                 diameter
         );
         // fill node with color
-        graphics2D.setColor(Color.WHITE);
+        graphics2D.setColor(this.backgroundColor);
         graphics2D.fill(shape);
         // draw the outline
         graphics2D.setColor(outlineColor);
@@ -349,8 +350,8 @@ class Canvas extends JPanel {
         );
         Shape strokedUpstreamHalfShape = this.solidLineStroke.createStrokedShape(upstreamHalfArc);
         Shape strokedDownstreamHalfShape = this.solidLineStroke.createStrokedShape(downstreamHalfArc);
-        Color upstreamHalfLoopColor = isHighlighted ? this.highlightedUpstreamColor : this.unHighlightedColor;
-        Color downstreamHalfLoopColor = isHighlighted ? this.highlightedDownstreamColor : this.unHighlightedColor;
+        Color upstreamHalfLoopColor = isHighlighted ? this.upstreamColor : this.unHighlightedColor;
+        Color downstreamHalfLoopColor = isHighlighted ? this.downstreamColor : this.unHighlightedColor;
         graphics2D.setColor(upstreamHalfLoopColor);
         graphics2D.draw(strokedUpstreamHalfShape);
         graphics2D.setColor(downstreamHalfLoopColor);

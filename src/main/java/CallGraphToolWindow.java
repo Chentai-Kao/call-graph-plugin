@@ -83,14 +83,13 @@ public class CallGraphToolWindow {
 
     public CallGraphToolWindow() {
         // click handlers for buttons
-        this.runButton.addActionListener(e -> run());
+        this.runButton.addActionListener(e -> run(getSelectedBuildOption()));
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
         this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
-        this.showOnlyUpstreamButton.addActionListener(e -> showGraphForSingleMethod(BuildOption.UPSTREAM));
-        this.showOnlyDownstreamButton.addActionListener(e -> showGraphForSingleMethod(BuildOption.DOWNSTREAM));
-        this.showOnlyUpstreamDownstreamButton
-                .addActionListener(e -> showGraphForSingleMethod(BuildOption.UPSTREAM_DOWNSTREAM));
+        this.showOnlyUpstreamButton.addActionListener(e -> run(BuildOption.UPSTREAM));
+        this.showOnlyDownstreamButton.addActionListener(e -> run(BuildOption.DOWNSTREAM));
+        this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(BuildOption.UPSTREAM_DOWNSTREAM));
     }
 
     void disableAllSecondaryOptions() {
@@ -126,7 +125,7 @@ public class CallGraphToolWindow {
         }
     }
 
-    public void run() {
+    public void run(@NotNull BuildOption buildOption) {
         Project project = getActiveProject();
         if (project == null) {
             return;
@@ -138,32 +137,49 @@ public class CallGraphToolWindow {
         ProgressManager.getInstance().run(
                 new Task.Backgroundable(project, "Call Graph") {
                     public void run(@NotNull ProgressIndicator progressIndicator) {
-                        ApplicationManager.getApplication()
-                                .runReadAction(() -> showGraphForEntireProject(project));
+                        ApplicationManager.getApplication().runReadAction(() -> {
+                            switch (buildOption) {
+                                case WHOLE_PROJECT_WITH_TEST:
+                                    // fall through
+                                case WHOLE_PROJECT_WITHOUT_TEST:
+                                    // fall through
+                                case MODULE:
+                                    // fall through
+                                case DIRECTORY:
+                                    showGraphForEntireProject(project, buildOption);
+                                    break;
+                                case UPSTREAM:
+                                    // fall through
+                                case DOWNSTREAM:
+                                    // fall through
+                                case UPSTREAM_DOWNSTREAM:
+                                    showGraphForSingleMethod(project, buildOption);
+                                    break;
+                                default:
+                                    break;
+                            }
+                        });
                     }
                 }
         );
     }
 
-    public void showGraphForEntireProject(@NotNull Project project) {
+    public void showGraphForEntireProject(@NotNull Project project, @NotNull BuildOption buildOption) {
         prepareStart();
-        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMapForEntireProject(project);
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMapForEntireProject(project, buildOption);
         visualizeCallGraph(project, methodCallersMap);
         prepareEnd();
     }
 
-    public void showGraphForSingleMethod(@NotNull BuildOption buildOption) {
-        Project project = getActiveProject();
-        if (project != null && this.clickedNode != null) {
-            PsiMethod focusedMethod = this.clickedNode.getMethod();
-            prepareStart();
-            Map<PsiMethod, Set<PsiMethod>> methodCallersMap =
-                    getMethodCallersMapForSingleMethod(focusedMethod, buildOption);
-            System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
-                    methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
-            visualizeCallGraph(project, methodCallersMap);
-            prepareEnd();
-        }
+    public void showGraphForSingleMethod(@NotNull Project project, @NotNull BuildOption buildOption) {
+        prepareStart();
+        PsiMethod focusedMethod = this.clickedNode.getMethod();
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap =
+                getMethodCallersMapForSingleMethod(focusedMethod, buildOption);
+        System.out.println(String.format("found %d methods and %d callers in total", methodCallersMap.size(),
+                methodCallersMap.values().stream().map(Set::size).mapToInt(Integer::intValue).sum()));
+        visualizeCallGraph(project, methodCallersMap);
+        prepareEnd();
     }
 
     private void visualizeCallGraph(
@@ -226,8 +242,8 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project) {
-        switch (getSelectedBuildOption()) {
+    private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project, @NotNull BuildOption buildOption) {
+        switch (buildOption) {
             case WHOLE_PROJECT_WITH_TEST:
                 VirtualFile[] contentRoots = ProjectRootManager.getInstance(project).getContentRoots();
                 return new HashSet<>(Arrays.asList(contentRoots));
@@ -371,9 +387,11 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(@NotNull Project project) {
+    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(
+            @NotNull Project project,
+            @NotNull BuildOption buildOption) {
         System.out.println("--- getting method references ---");
-        Set<PsiFile> allFiles = getSourceCodeRoots(project)
+        Set<PsiFile> allFiles = getSourceCodeRoots(project, buildOption)
                 .stream()
                 .flatMap(contentSourceRoot -> {
                     List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
@@ -399,7 +417,7 @@ public class CallGraphToolWindow {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            SearchScope searchScope = getSearchScope(project, method);
+                            SearchScope searchScope = getSearchScope(project, method, buildOption);
                             long start = new Date().getTime();
                             Collection<PsiReference> references =
                                     ReferencesSearch.search(method, searchScope).findAll();
@@ -517,8 +535,11 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private SearchScope getSearchScope(@NotNull Project project, @NotNull PsiMethod method) {
-        switch (getSelectedBuildOption()) {
+    private SearchScope getSearchScope(
+            @NotNull Project project,
+            @NotNull PsiMethod method,
+            @NotNull BuildOption buildOption) {
+        switch (buildOption) {
             case WHOLE_PROJECT_WITH_TEST:
                 return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
             case WHOLE_PROJECT_WITHOUT_TEST:
