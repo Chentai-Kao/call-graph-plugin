@@ -276,6 +276,7 @@ public class CallGraphToolWindow {
     private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForSingleMethod(
             @NotNull PsiMethod focusedMethod,
             @NotNull BuildOption buildOption) {
+        resetIndeterminateProgressBar();
         Set<PsiMethod> startingMethods = Stream.of(focusedMethod).collect(Collectors.toSet());
         // upstream mapping of { callee => callers }
         Map<PsiMethod, Set<PsiMethod>> upstreamMethodCallersMap =
@@ -413,6 +414,7 @@ public class CallGraphToolWindow {
                 .flatMap(psiFile -> Stream.of(((PsiJavaFile)psiFile).getClasses())) // get all classes
                 .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
+        resetDeterminateProgressBar(allMethods.size());
         return allMethods.stream()
                 .collect(Collectors.toMap(
                         method -> method,
@@ -423,6 +425,7 @@ public class CallGraphToolWindow {
                                     ReferencesSearch.search(method, searchScope).findAll();
                             long now = new Date().getTime();
                             System.out.printf("%d milliseconds for method %s\n", now - start, method.getName());
+                            incrementDeterminateProgressBar();
                             return references.stream()
                                     .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
                                     .filter(Objects::nonNull)
@@ -590,5 +593,22 @@ public class CallGraphToolWindow {
         this.showOnlyUpstreamButton.setEnabled(isEnabled);
         this.showOnlyDownstreamButton.setEnabled(isEnabled);
         this.showOnlyUpstreamDownstreamButton.setEnabled(isEnabled);
+    }
+
+    private void resetIndeterminateProgressBar() {
+        this.loadingProgressBar.setIndeterminate(true);
+        this.loadingProgressBar.setStringPainted(false);
+    }
+
+    private void resetDeterminateProgressBar(int maximum) {
+        this.loadingProgressBar.setMaximum(maximum);
+        this.loadingProgressBar.setValue(0);
+        this.loadingProgressBar.setStringPainted(true);
+    }
+
+    private void incrementDeterminateProgressBar() {
+        int newValue = this.loadingProgressBar.getValue() + 1;
+        this.loadingProgressBar.setValue(newValue);
+        this.loadingProgressBar.setString(String.format("%d / %d", newValue, this.loadingProgressBar.getMaximum()));
     }
 }

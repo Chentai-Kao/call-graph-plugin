@@ -192,7 +192,8 @@
                 </constraints>
                 <properties>
                   <enabled value="true"/>
-                  <indeterminate value="true"/>
+                  <indeterminate value="false"/>
+                  <stringPainted value="true"/>
                   <visible value="false"/>
                 </properties>
               </component>
