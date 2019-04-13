@@ -7,18 +7,18 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.*;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@SuppressWarnings("UseJBColor")
 class Canvas extends JPanel {
     private Graph graph;
     private JPanel canvasPanel;
@@ -33,13 +33,12 @@ class Canvas extends JPanel {
     private final int nodeDiameter = 2 * nodeRadius;
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
-    private final JBColor backgroundColor = JBColor.WHITE;
-    private final JBColor unHighlightedColor = JBColor.LIGHT_GRAY;
-    private final JBColor highlightedLineColor = JBColor.BLUE;
-    private final JBColor highlightedUpstreamColor = JBColor.ORANGE;
-    private final JBColor highlightedDownstreamColor = JBColor.GREEN;
-    private final JBColor unHighlightedTextColor = JBColor.DARK_GRAY;
-    private final JBColor highlightedTextColor = JBColor.BLUE;
+    private final Color backgroundColor = Color.WHITE;
+    private final Color unHighlightedColor = new Color(223, 225, 229);
+    private final Color highlightedColor = new Color(66, 133, 244);
+    private final Color highlightedUpstreamColor = new Color(251, 188, 5);
+    private final Color highlightedDownstreamColor = new Color(52, 168, 83);
+    private final Color unHighlightedTextColor = new Color(84, 86, 88);
 
     @NotNull
     Canvas setGraph(@NotNull Graph graph) {
@@ -122,7 +121,7 @@ class Canvas extends JPanel {
                         !isNodeHighlighted(edge.getSourceNode()) && !isNodeHighlighted(edge.getTargetNode()))
                 .forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.unHighlightedColor));
 
-        // draw upstream and downstream edges
+        // draw upstream/downstream edges
         Collection<Edge> upstreamEdges = this.graph.getEdges()
                 .stream()
                 .filter(edge -> isNodeHighlighted(edge.getTargetNode()) && edge.getSourceNode() != edge.getTargetNode())
@@ -135,19 +134,20 @@ class Canvas extends JPanel {
         downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.highlightedDownstreamColor));
 
         // draw un-highlighted labels
-        this.nodeShapesMap = new HashMap<>();
-        Collection<Node> unHighlightedNodes = this.graph.getNodes()
-                .stream()
-                .filter(node -> !isNodeHighlighted(node))
-                .collect(Collectors.toSet());
-        unHighlightedNodes.forEach(node -> drawNodeLabel(
-                        graphics2D, node, node.getMethod().getName(), this.unHighlightedTextColor));
-
-        // draw un-highlighted nodes (upstream and downstream nodes are excluded)
         Collection<Node> upstreamNodes =
                 upstreamEdges.stream().map(Edge::getSourceNode).collect(Collectors.toSet());
         Collection<Node> downstreamNodes =
                 downstreamEdges.stream().map(Edge::getTargetNode).collect(Collectors.toSet());
+        Collection<Node> unHighlightedNodes = this.graph.getNodes()
+                .stream()
+                .filter(node -> !isNodeHighlighted(node) &&
+                        !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
+                .collect(Collectors.toSet());
+        unHighlightedNodes.forEach(node -> drawNodeLabel(
+                        graphics2D, node, node.getMethod().getName(), this.unHighlightedTextColor));
+
+        // draw un-highlighted nodes (upstream/downstream nodes are excluded)
+        this.nodeShapesMap = new HashMap<>();
         unHighlightedNodes.stream()
                 .filter(node -> !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
                 .forEach(node -> {
@@ -155,7 +155,11 @@ class Canvas extends JPanel {
                     this.nodeShapesMap.put(nodeShape, node);
                 });
 
-        // draw upstream and downstream nodes
+        // draw upstream/downstream label and nodes
+        upstreamNodes.forEach(node -> drawNodeLabel(
+                graphics2D, node, node.getMethod().getName(), this.highlightedUpstreamColor));
+        downstreamNodes.forEach(node -> drawNodeLabel(
+                graphics2D, node, node.getMethod().getName(), this.highlightedDownstreamColor));
         upstreamNodes.forEach(node -> {
             Shape nodeShape = drawNode(graphics2D, node, this.highlightedUpstreamColor);
             this.nodeShapesMap.put(nodeShape, node);
@@ -170,9 +174,9 @@ class Canvas extends JPanel {
                 .stream()
                 .filter(this::isNodeHighlighted)
                 .forEach(node -> {
-                    Shape nodeShape = drawNode(graphics2D, node, this.highlightedLineColor);
+                    Shape nodeShape = drawNode(graphics2D, node, this.highlightedColor);
                     this.nodeShapesMap.put(nodeShape, node);
-                    drawNodeLabel(graphics2D, node, getFunctionSignature(node), this.highlightedTextColor);
+                    drawNodeLabel(graphics2D, node, getFunctionSignature(node), this.highlightedColor);
                     drawNodeFilePath(graphics2D, node, getFunctionFilePath(node.getMethod()));
                 });
     }
@@ -181,7 +185,7 @@ class Canvas extends JPanel {
             @NotNull Graphics2D graphics2D,
             @NotNull Node node,
             @NotNull String label,
-            @NotNull JBColor labelColor) {
+            @NotNull Color labelColor) {
         Point2D nodeCenter = toCameraView(node.getPoint());
         Point2D labelCenterLeft = new Point2D.Float(
                 (int) (nodeCenter.getX() + 2 * this.nodeDiameter),
@@ -195,7 +199,7 @@ class Canvas extends JPanel {
         drawSelfLoop(graphics2D, sourceNodeCenter, isHighlighted);
     }
 
-    private void drawNonLoopEdge(@NotNull Graphics2D graphics2D, @NotNull Edge edge, @NotNull JBColor color) {
+    private void drawNonLoopEdge(@NotNull Graphics2D graphics2D, @NotNull Edge edge, @NotNull Color color) {
         Point2D sourceNodeCenter = toCameraView(edge.getSourceNode().getPoint());
         Point2D targetNodeCenter = toCameraView(edge.getTargetNode().getPoint());
         drawLine(graphics2D, sourceNodeCenter, targetNodeCenter, color);
@@ -203,7 +207,7 @@ class Canvas extends JPanel {
     }
 
     @NotNull
-    private Shape drawNode(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull JBColor color) {
+    private Shape drawNode(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull Color color) {
         Point2D nodeCenter = toCameraView(node.getPoint());
         return drawCircle(graphics2D, nodeCenter, this.nodeRadius, color);
     }
@@ -259,7 +263,7 @@ class Canvas extends JPanel {
             Graphics2D graphics2D,
             @NotNull Point2D circleCenter,
             int radius,
-            @NotNull JBColor outlineColor) {
+            @NotNull Color outlineColor) {
         // create node shape
         Point2D upperLeft = new Point2D.Float(
                 (float) circleCenter.getX() - radius,
@@ -273,7 +277,7 @@ class Canvas extends JPanel {
                 diameter
         );
         // fill node with color
-        graphics2D.setColor(JBColor.WHITE);
+        graphics2D.setColor(Color.WHITE);
         graphics2D.fill(shape);
         // draw the outline
         graphics2D.setColor(outlineColor);
@@ -286,7 +290,7 @@ class Canvas extends JPanel {
             Graphics2D graphics2D,
             @NotNull Point2D textCenterLeft,
             @NotNull String text,
-            @NotNull JBColor textColor) {
+            @NotNull Color textColor) {
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         Point2D textLowerLeft = new Point2D.Float(
                 (int) textCenterLeft.getX(),
@@ -310,7 +314,7 @@ class Canvas extends JPanel {
             Graphics2D graphics2D,
             @NotNull Point2D sourcePoint,
             @NotNull Point2D targetPoint,
-            @NotNull JBColor lineColor) {
+            @NotNull Color lineColor) {
         Line2D shape = new Line2D.Float(sourcePoint, targetPoint);
         Shape strokedShape = this.solidLineStroke.createStrokedShape(shape);
         graphics2D.setColor(lineColor);
@@ -345,8 +349,8 @@ class Canvas extends JPanel {
         );
         Shape strokedUpstreamHalfShape = this.solidLineStroke.createStrokedShape(upstreamHalfArc);
         Shape strokedDownstreamHalfShape = this.solidLineStroke.createStrokedShape(downstreamHalfArc);
-        JBColor upstreamHalfLoopColor = isHighlighted ? this.highlightedUpstreamColor : this.unHighlightedColor;
-        JBColor downstreamHalfLoopColor = isHighlighted ? this.highlightedDownstreamColor : this.unHighlightedColor;
+        Color upstreamHalfLoopColor = isHighlighted ? this.highlightedUpstreamColor : this.unHighlightedColor;
+        Color downstreamHalfLoopColor = isHighlighted ? this.highlightedDownstreamColor : this.unHighlightedColor;
         graphics2D.setColor(upstreamHalfLoopColor);
         graphics2D.draw(strokedUpstreamHalfShape);
         graphics2D.setColor(downstreamHalfLoopColor);
@@ -360,7 +364,7 @@ class Canvas extends JPanel {
             @NotNull Graphics2D graphics2D,
             @NotNull Point2D sourcePoint,
             @NotNull Point2D targetPoint,
-            @NotNull JBColor arrowColor) {
+            @NotNull Color arrowColor) {
         double dx = targetPoint.getX() - sourcePoint.getX();
         double dy = targetPoint.getY() - sourcePoint.getY();
         double angle = Math.atan2(dy, dx);
@@ -375,7 +379,7 @@ class Canvas extends JPanel {
             @NotNull Graphics2D graphics2D,
             @NotNull Point2D center,
             double angle,
-            @NotNull JBColor arrowColor) {
+            @NotNull Color arrowColor) {
         long arrowSize = 5;
         Point2D midPoint = new Point2D.Double(
                 center.getX() + arrowSize * Math.cos(angle),
