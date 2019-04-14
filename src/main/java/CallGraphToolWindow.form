@@ -153,7 +153,9 @@
             <constraints>
               <tabbedpane title="Graph"/>
             </constraints>
-            <properties/>
+            <properties>
+              <enabled value="false"/>
+            </properties>
             <border type="none"/>
             <children>
               <grid id="e4dd" binding="canvasPanel" layout-manager="BorderLayout" hgap="0" vgap="0">

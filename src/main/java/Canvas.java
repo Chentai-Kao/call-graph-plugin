@@ -34,7 +34,7 @@ class Canvas extends JPanel {
     private final Color backgroundColor = new JBColor(new Color(0xFDFEFF), new Color(0x292B2D));
     private final Color unHighlightedColor = new JBColor(new Color(0xC6C8CA), new Color(0x585A5C));
     private final Color unHighlightedTextColor = new JBColor(new Color(0x626466), new Color(0x949698));
-    private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x5597C9));
+    private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x589DEF));
     private final Color upstreamColor = new JBColor(new Color(0xFBBC05), new Color(0xBE9117));
     private final Color downstreamColor = new JBColor(new Color(0x34A853), new Color(0x538863));
 

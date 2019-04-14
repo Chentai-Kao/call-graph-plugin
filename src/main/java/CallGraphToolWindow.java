@@ -213,7 +213,8 @@ public class CallGraphToolWindow {
 
     private void prepareStart() {
         this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
-        focusGraphTab();
+        this.mainTabbedPanel.getComponentAt(1).setEnabled(true); // enable the graph tab
+        this.mainTabbedPanel.setSelectedIndex(1); // focus on the graph tab
         BuildOption buildOption = getSelectedBuildOption();
         switch (buildOption) {
             case WHOLE_PROJECT_WITH_TEST_LIMITED:
@@ -668,10 +669,6 @@ public class CallGraphToolWindow {
                 break;
         }
         return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-    }
-
-    private void focusGraphTab() {
-        this.mainTabbedPanel.setSelectedIndex(1);
     }
 
     @NotNull
