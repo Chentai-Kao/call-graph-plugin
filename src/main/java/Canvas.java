@@ -17,6 +17,7 @@ import java.awt.geom.*;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 class Canvas extends JPanel {
@@ -36,7 +37,7 @@ class Canvas extends JPanel {
     private final Color backgroundColor = new JBColor(new Color(0xFDFEFF), new Color(0x292B2D));
     private final Color unHighlightedColor = new JBColor(new Color(0xC6C8CA), new Color(0x585A5C));
     private final Color unHighlightedTextColor = new JBColor(new Color(0x626466), new Color(0x949698));
-    private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x4C79A4));
+    private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x5597C9));
     private final Color upstreamColor = new JBColor(new Color(0xFBBC05), new Color(0xBE9117));
     private final Color downstreamColor = new JBColor(new Color(0x34A853), new Color(0x538863));
 
@@ -143,7 +144,7 @@ class Canvas extends JPanel {
                 .filter(node -> !isNodeHighlighted(node) &&
                         !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
                 .collect(Collectors.toSet());
-        unHighlightedNodes.forEach(node -> drawNodeLabel(
+        unHighlightedNodes.forEach(node -> drawSingleNodeLabel(
                         graphics2D, node, node.getMethod().getName(), this.unHighlightedTextColor));
 
         // draw un-highlighted nodes (upstream/downstream nodes are excluded)
@@ -156,9 +157,9 @@ class Canvas extends JPanel {
                 });
 
         // draw upstream/downstream label and nodes
-        upstreamNodes.forEach(node -> drawNodeLabel(
+        upstreamNodes.forEach(node -> drawSingleNodeLabel(
                 graphics2D, node, node.getMethod().getName(), this.upstreamColor));
-        downstreamNodes.forEach(node -> drawNodeLabel(
+        downstreamNodes.forEach(node -> drawSingleNodeLabel(
                 graphics2D, node, node.getMethod().getName(), this.downstreamColor));
         upstreamNodes.forEach(node -> {
             Shape nodeShape = drawNode(graphics2D, node, this.upstreamColor);
@@ -176,22 +177,18 @@ class Canvas extends JPanel {
                 .forEach(node -> {
                     Shape nodeShape = drawNode(graphics2D, node, this.highlightedColor);
                     this.nodeShapesMap.put(nodeShape, node);
-                    drawNodeLabel(graphics2D, node, getFunctionSignature(node), this.highlightedColor);
-                    drawNodeFilePath(graphics2D, node, getFunctionFilePath(node.getMethod()));
+                    drawNodeLabels(graphics2D, node, Arrays.asList(
+                            new AbstractMap.SimpleEntry<>(getFunctionSignature(node), this.highlightedColor),
+                            new AbstractMap.SimpleEntry<>(getFunctionFilePath(node.getMethod()), this.unHighlightedTextColor)));
                 });
     }
 
-    private void drawNodeLabel(
+    private void drawSingleNodeLabel(
             @NotNull Graphics2D graphics2D,
             @NotNull Node node,
             @NotNull String label,
             @NotNull Color labelColor) {
-        Point2D nodeCenter = toCameraView(node.getPoint());
-        Point2D labelCenterLeft = new Point2D.Float(
-                (int) (nodeCenter.getX() + 2 * this.nodeDiameter),
-                (int) nodeCenter.getY()
-        );
-        drawText(graphics2D, labelCenterLeft, label, labelColor);
+        drawNodeLabels(graphics2D, node, Collections.singletonList(new AbstractMap.SimpleEntry<>(label, labelColor)));
     }
 
     private void drawSelfLoopEdge(@NotNull Graphics2D graphics2D, @NotNull Edge edge, boolean isHighlighted) {
@@ -212,14 +209,24 @@ class Canvas extends JPanel {
         return drawCircle(graphics2D, nodeCenter, this.nodeRadius, color);
     }
 
-    private void drawNodeFilePath(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull String filePath) {
+    private void drawNodeLabels(
+            @NotNull Graphics2D graphics2D,
+            @NotNull Node node,
+            @NotNull List<AbstractMap.SimpleEntry<String, Color>> labels) {
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
+        int labelBoundingBoxHeight = fontMetrics.getAscent() + fontMetrics.getDescent();
         Point2D nodeCenter = toCameraView(node.getPoint());
-        Point2D filePathCenterLeft = new Point2D.Float(
-                (float) (nodeCenter.getX() + 2 * this.nodeDiameter),
-                (float) (nodeCenter.getY() - fontMetrics.getAscent() - fontMetrics.getDescent())
-        );
-        drawText(graphics2D, filePathCenterLeft, filePath, this.unHighlightedTextColor);
+        int labelCount = labels.size();
+        IntStream.range(0, labelCount)
+                .forEach(index -> {
+                    String text = labels.get(index).getKey();
+                    Color color = labels.get(index).getValue();
+                    Point2D labelCenterLeft = new Point2D.Float(
+                            (float) (nodeCenter.getX() + 2 * this.nodeDiameter),
+                            (float) (nodeCenter.getY() - index * labelBoundingBoxHeight)
+                    );
+                    drawText(graphics2D, labelCenterLeft, text, color);
+                });
     }
 
     @NotNull

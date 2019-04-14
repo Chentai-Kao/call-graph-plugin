@@ -217,22 +217,22 @@ public class CallGraphToolWindow {
             case WHOLE_PROJECT_WITH_TEST:
             case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
             case WHOLE_PROJECT_WITHOUT_TEST:
-                setBuiltByLabel(buildOption.getLabel());
+                this.buildOptionLabel.setText(buildOption.getLabel());
                 break;
             case MODULE_LIMITED:
             case MODULE:
                 String moduleName = (String) this.moduleScopeComboBox.getSelectedItem();
-                setBuiltByLabel(String.format("%s [%s]", buildOption.getLabel(), moduleName));
+                this.buildOptionLabel.setText(String.format("%s [%s]", buildOption.getLabel(), moduleName));
                 break;
             case DIRECTORY_LIMITED:
             case DIRECTORY:
                 String path = this.directoryScopeTextField.getText();
-                setBuiltByLabel(String.format("%s [%s]", buildOption.getLabel(), path));
+                this.buildOptionLabel.setText(String.format("%s [%s]", buildOption.getLabel(), path));
                 break;
             case UPSTREAM:
             case DOWNSTREAM:
             case UPSTREAM_DOWNSTREAM:
-                setBuiltByLabel(String.format("%s of function [%s]",
+                this.buildOptionLabel.setText(String.format("%s of function [%s]",
                         buildOption.getLabel(), this.clickedNode.getMethod().getName()));
             default:
                 break;
@@ -665,10 +665,6 @@ public class CallGraphToolWindow {
 
     private void focusGraphTab() {
         this.mainTabbedPanel.setSelectedIndex(1);
-    }
-
-    private void setBuiltByLabel(@NotNull String text) {
-        this.buildOptionLabel.setText(String.format("Source: %s", text));
     }
 
     @NotNull
