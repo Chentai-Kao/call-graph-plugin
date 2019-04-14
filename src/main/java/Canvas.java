@@ -172,14 +172,24 @@ class Canvas extends JPanel {
                 .stream()
                 .filter(this::isNodeHighlighted)
                 .forEach(node -> {
+                    // draw node
                     Shape nodeShape = drawNode(graphics2D, node, this.highlightedColor);
                     this.nodeShapesMap.put(nodeShape, node);
-                    drawNodeLabels(graphics2D, node, Arrays.asList(
-                            new AbstractMap.SimpleEntry<>(getFunctionSignature(node), this.highlightedColor),
-                            new AbstractMap.SimpleEntry<>(
-                                    getFunctionPackageName(node.getMethod()), this.unHighlightedTextColor),
-                            new AbstractMap.SimpleEntry<>(
-                                    getFunctionFilePath(node.getMethod()), this.unHighlightedTextColor)));
+                    // draw labels (stacked up)
+                    String signature = getFunctionSignature(node);
+                    String packageName = this.callGraphToolWindow.isRenderFunctionPackageName() ?
+                            getFunctionPackageName(node.getMethod()) : "";
+                    String filePath = this.callGraphToolWindow.isRenderFunctionFilePath() ?
+                            getFunctionFilePath(node.getMethod()) : "";
+                    List<AbstractMap.SimpleEntry<String, Color>> labels =
+                            Stream.of(
+                                    new AbstractMap.SimpleEntry<>(signature, this.highlightedColor),
+                                    new AbstractMap.SimpleEntry<>(packageName, this.unHighlightedTextColor),
+                                    new AbstractMap.SimpleEntry<>(filePath, this.unHighlightedTextColor)
+                            )
+                            .filter(entry -> !entry.getKey().isEmpty())
+                            .collect(Collectors.toList());
+                    drawNodeLabels(graphics2D, node, labels);
                 });
     }
 

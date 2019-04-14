@@ -58,7 +58,10 @@ public class CallGraphToolWindow {
     private JButton showOnlyDownstreamButton;
     private JButton showOnlyUpstreamDownstreamButton;
     private JCheckBox upstreamDownstreamScopeCheckbox;
+    private JCheckBox viewPackageNameCheckBox;
+    private JCheckBox viewFilePathCheckBox;
 
+    private Canvas canvas;
     private ProgressIndicator progressIndicator;
     private Node clickedNode;
     private enum BuildOption {
@@ -204,8 +207,8 @@ public class CallGraphToolWindow {
             @NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
         Graph graph = buildGraph(methodCallersMap);
         layoutByGraphViz(graph);
-        Canvas canvas = renderGraphOnCanvas(graph, project);
-        attachEventListeners(canvas);
+        renderGraphOnCanvas(graph, project);
+        attachEventListeners(this.canvas);
     }
 
     private void prepareStart() {
@@ -241,11 +244,17 @@ public class CallGraphToolWindow {
         this.showOnlyUpstreamButton.setEnabled(false);
         this.showOnlyDownstreamButton.setEnabled(false);
         this.showOnlyUpstreamDownstreamButton.setEnabled(false);
+        this.viewPackageNameCheckBox.setEnabled(false);
+        this.viewFilePathCheckBox.setEnabled(false);
         this.canvasPanel.removeAll();
     }
 
     private void prepareEnd() {
         this.loadingProgressBar.setVisible(false);
+        this.viewPackageNameCheckBox.setEnabled(true);
+        this.viewPackageNameCheckBox.setSelected(true);
+        this.viewFilePathCheckBox.setEnabled(true);
+        this.viewFilePathCheckBox.setSelected(false);
     }
 
     @Nullable
@@ -484,16 +493,14 @@ public class CallGraphToolWindow {
         return graph;
     }
 
-    @NotNull
-    private Canvas renderGraphOnCanvas(@NotNull Graph graph, @NotNull Project project) {
-        Canvas canvas = new Canvas()
+    private void renderGraphOnCanvas(@NotNull Graph graph, @NotNull Project project) {
+        this.canvas = new Canvas()
                 .setGraph(graph)
                 .setCanvasPanel(this.canvasPanel)
                 .setProject(project)
                 .setCallGraphToolWindow(this);
-        this.canvasPanel.add(canvas);
+        this.canvasPanel.add(this.canvas);
         this.canvasPanel.updateUI();
-        return canvas;
     }
 
     private void attachEventListeners(@NotNull Canvas canvas) {
@@ -709,5 +716,13 @@ public class CallGraphToolWindow {
         int newValue = this.loadingProgressBar.getValue() + 1;
         this.loadingProgressBar.setValue(newValue);
         this.loadingProgressBar.setString(String.format("%d / %d", newValue, this.loadingProgressBar.getMaximum()));
+    }
+
+    boolean isRenderFunctionPackageName() {
+        return this.viewPackageNameCheckBox.isSelected();
+    }
+
+    boolean isRenderFunctionFilePath() {
+        return this.viewFilePathCheckBox.isSelected();
     }
 }
