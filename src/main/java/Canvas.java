@@ -2,10 +2,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiNamedElement;
+import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
@@ -179,7 +176,10 @@ class Canvas extends JPanel {
                     this.nodeShapesMap.put(nodeShape, node);
                     drawNodeLabels(graphics2D, node, Arrays.asList(
                             new AbstractMap.SimpleEntry<>(getFunctionSignature(node), this.highlightedColor),
-                            new AbstractMap.SimpleEntry<>(getFunctionFilePath(node.getMethod()), this.unHighlightedTextColor)));
+                            new AbstractMap.SimpleEntry<>(
+                                    getFunctionPackageName(node.getMethod()), this.unHighlightedTextColor),
+                            new AbstractMap.SimpleEntry<>(
+                                    getFunctionFilePath(node.getMethod()), this.unHighlightedTextColor)));
                 });
     }
 
@@ -227,6 +227,23 @@ class Canvas extends JPanel {
                     );
                     drawText(graphics2D, labelCenterLeft, text, color);
                 });
+    }
+
+    @NotNull
+    private String getFunctionPackageName(@NotNull PsiMethod psiMethod) {
+        // get class name
+        PsiClass psiClass = psiMethod.getContainingClass();
+        String className = psiClass == null || psiClass.getQualifiedName() == null ? "" : psiClass.getQualifiedName();
+        // get package name
+        PsiJavaFile psiJavaFile = (PsiJavaFile) psiMethod.getContainingFile();
+        if (psiJavaFile != null) {
+            PsiPackageStatement psiPackageStatement = psiJavaFile.getPackageStatement();
+            if (psiPackageStatement != null) {
+                return String.format("%s.%s", psiPackageStatement.getPackageName(), className);
+            }
+        }
+        // no package, just return class name
+        return className;
     }
 
     @NotNull
