@@ -30,9 +30,11 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.geom.Point2D;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
@@ -58,8 +60,6 @@ public class CallGraphToolWindow {
 
     private ProgressIndicator progressIndicator;
     private Node clickedNode;
-    private final float xGridRatio = 1.0f;
-    private final float yGridRatio = 2.0f;
     private enum BuildOption {
         WHOLE_PROJECT_WITH_TEST("Whole project (test files included)"),
         WHOLE_PROJECT_WITHOUT_TEST("Whole project (test files excluded)"),
@@ -182,13 +182,9 @@ public class CallGraphToolWindow {
     private void visualizeCallGraph(
             @NotNull Project project,
             @NotNull Map<PsiMethod, Set<PsiMethod>> methodCallersMap) {
-        System.out.println("--- building graph ---");
         Graph graph = buildGraph(methodCallersMap);
-        System.out.println("--- getting layout from GraphViz ---");
         layoutByGraphViz(graph);
-        System.out.println("--- rendering graph ---");
         Canvas canvas = renderGraphOnCanvas(graph, project);
-        System.out.println("--- attaching event listeners ---");
         attachEventListeners(canvas);
     }
 
@@ -214,6 +210,9 @@ public class CallGraphToolWindow {
                 break;
         }
         this.loadingProgressBar.setVisible(true);
+        this.showOnlyUpstreamButton.setEnabled(false);
+        this.showOnlyDownstreamButton.setEnabled(false);
+        this.showOnlyUpstreamDownstreamButton.setEnabled(false);
         this.canvasPanel.removeAll();
     }
 
@@ -388,7 +387,6 @@ public class CallGraphToolWindow {
     private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(
             @NotNull Project project,
             @NotNull BuildOption buildOption) {
-        System.out.println("--- getting method references ---");
         Set<PsiFile> allFiles = getSourceCodeRoots(project, buildOption)
                 .stream()
                 .flatMap(contentSourceRoot -> {
@@ -487,27 +485,89 @@ public class CallGraphToolWindow {
             sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
             gvGraph.add(gvNode);
         });
-        String layoutBlueprint = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
+        String layoutRawText = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
 
         // parse the GraphViz layout as a mapping from "node name" to "x-y coordinate (percent of full graph size)"
         // GraphViz doc: https://graphviz.gitlab.io/_pages/doc/info/output.html#d:plain
-        List<String> layoutLines = Arrays.asList(layoutBlueprint.split("\n"));
-        String graphSizeLine = layoutLines.stream()
-                .filter(line -> line.startsWith("graph"))
-                .findFirst()
-                .orElse("");
-        String[] graphSizeParts = graphSizeLine.split(" ");
-        float graphWidth = Float.parseFloat(graphSizeParts[2]);
-        float graphHeight = Float.parseFloat(graphSizeParts[3]);
-        layoutLines.stream()
+        List<String> layoutLines = Arrays.asList(layoutRawText.split("\n"));
+        Map<String, Point2D> blueprint = layoutLines.stream()
                 .filter(line -> line.startsWith("node"))
                 .map(line -> line.split(" "))
-                .forEach(parts -> {
-                    String nodeId = parts[1];
-                    float x = this.xGridRatio * Float.parseFloat(parts[2]) / graphWidth;
-                    float y = this.yGridRatio * Float.parseFloat(parts[3]) / graphHeight;
-                    graph.getNode(nodeId).setCoordinate(x, y);
-                });
+                .collect(Collectors.toMap(
+                        parts -> parts[1],
+                        parts -> new Point2D.Float(Float.parseFloat(parts[2]), Float.parseFloat(parts[3]))
+                ));
+
+        // adjust node coordinates so they fit in the view
+        Point2D maxPoint = blueprint.values()
+                .stream()
+                .reduce((pointA, pointB) -> new Point2D.Double(
+                        Math.max(pointA.getX(), pointB.getX()), Math.max(pointA.getY(), pointB.getY())))
+                .orElseThrow(RuntimeException::new);
+        Point2D minPoint = blueprint.values()
+                .stream()
+                .reduce((pointA, pointB) -> new Point2D.Double(
+                        Math.min(pointA.getX(), pointB.getX()), Math.min(pointA.getY(), pointB.getY())))
+                .orElseThrow(RuntimeException::new);
+        double xSize = maxPoint.getX() - minPoint.getX();
+        double ySize = maxPoint.getY() - minPoint.getY();
+        double bestFitBaseline = 0.1; // make the best fit window between 0.1 - 0.9 of the viewport
+        double bestFitSize = 1 - 2 * bestFitBaseline;
+        Map<String, Point2D> viewportBlueprint = blueprint.entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> new Point2D.Double(
+                                (entry.getValue().getX() - minPoint.getX()) / xSize * bestFitSize + bestFitBaseline,
+                                (entry.getValue().getY() - minPoint.getY()) / ySize * bestFitSize + bestFitBaseline
+                        )
+                ));
+
+        //  normalize grid size on x and y axis
+        Map<String, Point2D> normalizedBlueprint = normalizeBlueprintGridSize(viewportBlueprint);
+        normalizedBlueprint.forEach((nodeId, point) ->
+                graph.getNode(nodeId).setCoordinate((float) point.getX(), (float) point.getY())
+        );
+    }
+
+    @NotNull
+    private Map<String, Point2D> normalizeBlueprintGridSize(@NotNull Map<String, Point2D> blueprint) {
+        float precisionFactor = 1000;
+        if (blueprint.size() < 2) {
+            return blueprint;
+        }
+        Set<Long> uniqueValuesX = blueprint.values()
+                .stream()
+                .map(point -> Math.round(precisionFactor * point.getX()))
+                .collect(Collectors.toSet());
+        Set<Long> uniqueValuesY = blueprint.values()
+                .stream()
+                .map(point -> Math.round(precisionFactor * point.getY()))
+                .collect(Collectors.toSet());
+        // to achieve equal xy grid size, only allow the graph to shrink (not grow) to keep it within the viewport
+        float xyRatio = 0.3f * getAverageElementDifference(uniqueValuesX) / getAverageElementDifference(uniqueValuesY);
+        float xFactor = Math.min(1, 1 / xyRatio);
+        float yFactor = Math.min(1, xyRatio);
+        float centralLine = 0.5f;
+        return blueprint.entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> new Point2D.Float(
+                                (float) (entry.getValue().getX() - centralLine) * xFactor + centralLine,
+                                (float) (entry.getValue().getY() - centralLine) * yFactor + centralLine
+                        )
+                ));
+    }
+
+    private float getAverageElementDifference(@NotNull Set<Long> elements) {
+        List<Long> uniqueValues = elements.stream()
+                .sorted()
+                .collect(Collectors.toList());
+        int cumulativeDifference = IntStream.range(0, uniqueValues.size() - 1)
+                .map(index -> (int) (uniqueValues.get(index + 1) - uniqueValues.get(index)))
+                .sum();
+        return (float) cumulativeDifference / elements.size();
     }
 
     @NotNull
@@ -595,6 +655,7 @@ public class CallGraphToolWindow {
     }
 
     private void resetDeterminateProgressBar(int maximum) {
+        this.loadingProgressBar.setIndeterminate(false);
         this.loadingProgressBar.setMaximum(maximum);
         this.loadingProgressBar.setValue(0);
         this.loadingProgressBar.setStringPainted(true);

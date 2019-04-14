@@ -32,13 +32,13 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
     public void mouseDragged(@NotNull MouseEvent event) {
         Point2D.Float currentMousePosition = new Point2D.Float(event.getX(), event.getY());
         if (!currentMousePosition.equals(this.lastMousePosition)) {
-            Point2D currentCameraCenter = this.canvas.getCameraCenter();
-            Point2D newCameraCenter = new Point2D.Float(
-                    (float) (currentCameraCenter.getX() - currentMousePosition.getX() + this.lastMousePosition.getX()),
-                    (float) (currentCameraCenter.getY() - currentMousePosition.getY() + this.lastMousePosition.getY())
+            Point2D currentCameraOrigin = this.canvas.getCameraOrigin();
+            Point2D newCameraOrigin = new Point2D.Float(
+                    (float) (currentCameraOrigin.getX() - currentMousePosition.getX() + this.lastMousePosition.getX()),
+                    (float) (currentCameraOrigin.getY() - currentMousePosition.getY() + this.lastMousePosition.getY())
             );
             this.canvas
-                    .setCameraCenter(newCameraCenter)
+                    .setCameraOrigin(newCameraOrigin)
                     .repaint();
             this.lastMousePosition = currentMousePosition;
         }
@@ -57,14 +57,14 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
         float newZoomRatio = currentZoomRatio * zoomFactor;
         // move the view to the mouse position
         Point2D mousePosition = new Point2D.Float(event.getX(), event.getY());
-        Point2D cameraCenter = this.canvas.getCameraCenter();
-        Point2D newCameraCenter = new Point2D.Float(
-                (float) (zoomFactor * cameraCenter.getX() + (zoomFactor - 1) * mousePosition.getX()),
-                (float) (zoomFactor * cameraCenter.getY() + (zoomFactor - 1) * mousePosition.getY())
+        Point2D cameraOrigin = this.canvas.getCameraOrigin();
+        Point2D newCameraOrigin = new Point2D.Float(
+                (float) (zoomFactor * cameraOrigin.getX() + (zoomFactor - 1) * mousePosition.getX()),
+                (float) (zoomFactor * cameraOrigin.getY() + (zoomFactor - 1) * mousePosition.getY())
         );
         // repaint
         this.canvas.setZoomRatio(newZoomRatio)
-                .setCameraCenter(newCameraCenter)
+                .setCameraOrigin(newCameraOrigin)
                 .repaint();
     }
 }

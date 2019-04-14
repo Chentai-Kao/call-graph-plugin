@@ -27,7 +27,7 @@ class Canvas extends JPanel {
     private Map<Shape, Node> nodeShapesMap;
     private Node hoveredNode;
     private Node clickedNode;
-    private Point2D cameraCenter = new Point2D.Float(0, 0);
+    private Point2D cameraOrigin = new Point2D.Float(0, 0);
     private float zoomRatio = 1.0f;
     private final int nodeRadius = 5;
     private final int nodeDiameter = 2 * nodeRadius;
@@ -65,14 +65,14 @@ class Canvas extends JPanel {
     }
 
     @NotNull
-    Canvas setCameraCenter(@NotNull Point2D cameraCenter) {
-        this.cameraCenter = cameraCenter;
+    Canvas setCameraOrigin(@NotNull Point2D cameraOrigin) {
+        this.cameraOrigin = cameraOrigin;
         return this;
     }
 
     @NotNull
-    Point2D getCameraCenter() {
-        return this.cameraCenter;
+    Point2D getCameraOrigin() {
+        return this.cameraOrigin;
     }
 
     @NotNull
@@ -254,8 +254,8 @@ class Canvas extends JPanel {
     private Point2D toCameraView(@NotNull Point2D point) {
         Dimension canvasSize = this.canvasPanel.getSize();
         return new Point2D.Float(
-                (float) (this.zoomRatio * point.getX() * canvasSize.width - this.cameraCenter.getX()),
-                (float) (this.zoomRatio * point.getY() * canvasSize.height - this.cameraCenter.getY())
+                (float) (this.zoomRatio * point.getX() * canvasSize.width - this.cameraOrigin.getX()),
+                (float) (this.zoomRatio * point.getY() * canvasSize.height - this.cameraOrigin.getY())
         );
     }
 
