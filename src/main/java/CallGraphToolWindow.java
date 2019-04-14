@@ -57,10 +57,15 @@ public class CallGraphToolWindow {
     private JButton showOnlyUpstreamButton;
     private JButton showOnlyDownstreamButton;
     private JButton showOnlyUpstreamDownstreamButton;
+    private JCheckBox upstreamDownstreamScopeCheckbox;
 
     private ProgressIndicator progressIndicator;
     private Node clickedNode;
     private enum BuildOption {
+        WHOLE_PROJECT_WITH_TEST_LIMITED("Whole project (test files included), limited up/down-stream scope"),
+        WHOLE_PROJECT_WITHOUT_TEST_LIMITED("Whole project (test files excluded), limited up/down-stream scope"),
+        MODULE_LIMITED("Module, limited up/down-stream scope"),
+        DIRECTORY_LIMITED("Directory, limited up/down-stream scope"),
         WHOLE_PROJECT_WITH_TEST("Whole project (test files included)"),
         WHOLE_PROJECT_WITHOUT_TEST("Whole project (test files excluded)"),
         MODULE("Module"),
@@ -139,12 +144,15 @@ public class CallGraphToolWindow {
                     public void run(@NotNull ProgressIndicator progressIndicator) {
                         ApplicationManager.getApplication().runReadAction(() -> {
                             switch (buildOption) {
+                                case WHOLE_PROJECT_WITH_TEST_LIMITED:
+                                case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
+                                case MODULE_LIMITED:
+                                case DIRECTORY_LIMITED:
+                                    showGraphForEntireProjectWithLimitedScope(project, buildOption);
+                                    break;
                                 case WHOLE_PROJECT_WITH_TEST:
-                                    // fall through
                                 case WHOLE_PROJECT_WITHOUT_TEST:
-                                    // fall through
                                 case MODULE:
-                                    // fall through
                                 case DIRECTORY:
                                     showGraphForEntireProject(project, buildOption);
                                     break;
@@ -164,17 +172,29 @@ public class CallGraphToolWindow {
         );
     }
 
+    public void showGraphForEntireProjectWithLimitedScope(
+            @NotNull Project project,
+            @NotNull BuildOption buildOption) {
+        prepareStart();
+        Set<PsiMethod> allMethods = getAllMethodsForEntireProject(project, buildOption);
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap =
+                getMethodCallersMapForEntireProject(project, buildOption, allMethods);
+        visualizeCallGraph(project, methodCallersMap);
+        prepareEnd();
+    }
+
     public void showGraphForEntireProject(@NotNull Project project, @NotNull BuildOption buildOption) {
         prepareStart();
-        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMapForEntireProject(project, buildOption);
+        Set<PsiMethod> allMethods = getAllMethodsForEntireProject(project, buildOption);
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMapForMethods(allMethods, buildOption);
         visualizeCallGraph(project, methodCallersMap);
         prepareEnd();
     }
 
     public void showGraphForSingleMethod(@NotNull Project project, @NotNull BuildOption buildOption) {
         prepareStart();
-        Map<PsiMethod, Set<PsiMethod>> methodCallersMap =
-                getMethodCallersMapForSingleMethod(this.clickedNode.getMethod(), buildOption);
+        Set<PsiMethod> seedMethods = Stream.of(this.clickedNode.getMethod()).collect(Collectors.toSet());
+        Map<PsiMethod, Set<PsiMethod>> methodCallersMap = getMethodCallersMapForMethods(seedMethods, buildOption);
         visualizeCallGraph(project, methodCallersMap);
         prepareEnd();
     }
@@ -193,19 +213,27 @@ public class CallGraphToolWindow {
         focusGraphTab();
         BuildOption buildOption = getSelectedBuildOption();
         switch (buildOption) {
+            case WHOLE_PROJECT_WITH_TEST_LIMITED:
             case WHOLE_PROJECT_WITH_TEST:
-                // fall through
+            case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
             case WHOLE_PROJECT_WITHOUT_TEST:
                 setBuiltByLabel(buildOption.getLabel());
                 break;
+            case MODULE_LIMITED:
             case MODULE:
                 String moduleName = (String) this.moduleScopeComboBox.getSelectedItem();
                 setBuiltByLabel(String.format("%s [%s]", buildOption.getLabel(), moduleName));
                 break;
+            case DIRECTORY_LIMITED:
             case DIRECTORY:
                 String path = this.directoryScopeTextField.getText();
                 setBuiltByLabel(String.format("%s [%s]", buildOption.getLabel(), path));
                 break;
+            case UPSTREAM:
+            case DOWNSTREAM:
+            case UPSTREAM_DOWNSTREAM:
+                setBuiltByLabel(String.format("%s of function [%s]",
+                        buildOption.getLabel(), this.clickedNode.getMethod().getName()));
             default:
                 break;
         }
@@ -240,19 +268,23 @@ public class CallGraphToolWindow {
     @NotNull
     private Set<VirtualFile> getSourceCodeRoots(@NotNull Project project, @NotNull BuildOption buildOption) {
         switch (buildOption) {
+            case WHOLE_PROJECT_WITH_TEST_LIMITED:
             case WHOLE_PROJECT_WITH_TEST:
                 VirtualFile[] contentRoots = ProjectRootManager.getInstance(project).getContentRoots();
                 return new HashSet<>(Arrays.asList(contentRoots));
+            case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
             case WHOLE_PROJECT_WITHOUT_TEST:
                 return getActiveModules(project)
                         .stream()
                         .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots(false)))
                         .collect(Collectors.toSet());
+            case MODULE_LIMITED:
             case MODULE:
                 return getSelectedModules(project)
                         .stream()
                         .flatMap(module -> Stream.of(ModuleRootManager.getInstance(module).getSourceRoots()))
                         .collect(Collectors.toSet());
+            case DIRECTORY_LIMITED:
             case DIRECTORY:
                 String path = this.directoryScopeTextField.getText();
                 if (!path.isEmpty()) {
@@ -269,21 +301,30 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForSingleMethod(
-            @NotNull PsiMethod focusedMethod,
+    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForMethods(
+            @NotNull Set<PsiMethod> methods,
             @NotNull BuildOption buildOption) {
         resetIndeterminateProgressBar();
-        Set<PsiMethod> startingMethods = Stream.of(focusedMethod).collect(Collectors.toSet());
         // upstream mapping of { callee => callers }
-        Map<PsiMethod, Set<PsiMethod>> upstreamMethodCallersMap =
-                buildOption == BuildOption.UPSTREAM || buildOption == BuildOption.UPSTREAM_DOWNSTREAM ?
-                        getUpstreamMethodCallersMap(startingMethods, new HashSet<>()) :
-                        Collections.emptyMap();
+        boolean needsUpstream = buildOption == BuildOption.WHOLE_PROJECT_WITH_TEST ||
+                buildOption == BuildOption.WHOLE_PROJECT_WITHOUT_TEST ||
+                buildOption == BuildOption.MODULE ||
+                buildOption == BuildOption.DIRECTORY ||
+                buildOption == BuildOption.UPSTREAM ||
+                buildOption == BuildOption.UPSTREAM_DOWNSTREAM;
+        Map<PsiMethod, Set<PsiMethod>> upstreamMethodCallersMap = needsUpstream ?
+                getUpstreamMethodCallersMap(methods, new HashSet<>()) :
+                Collections.emptyMap();
         // downstream mapping of { caller => callees }
-        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap =
-                buildOption == BuildOption.DOWNSTREAM || buildOption == BuildOption.UPSTREAM_DOWNSTREAM ?
-                        getDownstreamMethodCalleesMap(startingMethods, new HashSet<>()) :
-                        Collections.emptyMap();
+        boolean needsDownstream = buildOption == BuildOption.WHOLE_PROJECT_WITH_TEST ||
+                buildOption == BuildOption.WHOLE_PROJECT_WITHOUT_TEST ||
+                buildOption == BuildOption.MODULE ||
+                buildOption == BuildOption.DIRECTORY ||
+                buildOption == BuildOption.DOWNSTREAM ||
+                buildOption == BuildOption.UPSTREAM_DOWNSTREAM;
+        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap = needsDownstream ?
+                getDownstreamMethodCalleesMap(methods, new HashSet<>()) :
+                Collections.emptyMap();
         // reverse the key value relation of downstream mapping from { caller => callees } to { callee => callers }
         Map<PsiMethod, Set<PsiMethod>> downstreamMethodCallersMap = downstreamMethodCalleesMap.entrySet()
                 .stream()
@@ -384,9 +425,7 @@ public class CallGraphToolWindow {
     }
 
     @NotNull
-    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(
-            @NotNull Project project,
-            @NotNull BuildOption buildOption) {
+    private Set<PsiMethod> getAllMethodsForEntireProject(@NotNull Project project, @NotNull BuildOption buildOption) {
         Set<PsiFile> allFiles = getSourceCodeRoots(project, buildOption)
                 .stream()
                 .flatMap(contentSourceRoot -> {
@@ -405,10 +444,17 @@ public class CallGraphToolWindow {
                             .map(file -> PsiManager.getInstance(project).findFile(file));
                 })
                 .collect(Collectors.toSet());
-        Set<PsiMethod> allMethods = allFiles.stream()
+        return allFiles.stream()
                 .flatMap(psiFile -> Stream.of(((PsiJavaFile)psiFile).getClasses())) // get all classes
                 .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
+    }
+
+    @NotNull
+    private Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(
+            @NotNull Project project,
+            @NotNull BuildOption buildOption,
+            @NotNull Set<PsiMethod> allMethods) {
         resetDeterminateProgressBar(allMethods.size());
         return allMethods.stream()
                 .collect(Collectors.toMap(
@@ -503,12 +549,12 @@ public class CallGraphToolWindow {
                 .stream()
                 .reduce((pointA, pointB) -> new Point2D.Double(
                         Math.max(pointA.getX(), pointB.getX()), Math.max(pointA.getY(), pointB.getY())))
-                .orElseThrow(RuntimeException::new);
+                .orElse(new Point2D.Double(1, 1));
         Point2D minPoint = blueprint.values()
                 .stream()
                 .reduce((pointA, pointB) -> new Point2D.Double(
                         Math.min(pointA.getX(), pointB.getX()), Math.min(pointA.getY(), pointB.getY())))
-                .orElseThrow(RuntimeException::new);
+                .orElse(new Point2D.Double(0, 0));
         double xSize = maxPoint.getX() - minPoint.getX();
         double ySize = maxPoint.getY() - minPoint.getY();
         double bestFitBaseline = 0.1; // make the best fit window between 0.1 - 0.9 of the viewport
@@ -597,18 +643,18 @@ public class CallGraphToolWindow {
             @NotNull PsiMethod method,
             @NotNull BuildOption buildOption) {
         switch (buildOption) {
-            case WHOLE_PROJECT_WITH_TEST:
+            case WHOLE_PROJECT_WITH_TEST_LIMITED:
                 return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-            case WHOLE_PROJECT_WITHOUT_TEST:
+            case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
                 GlobalSearchScope[] modulesScope = getActiveModules(project)
                         .stream()
                         .map(module -> module.getModuleScope(false))
                         .toArray(GlobalSearchScope[]::new);
                 return GlobalSearchScope.union(modulesScope);
-            case MODULE:
+            case MODULE_LIMITED:
                 Set<Module> selectedModules = getSelectedModules(project);
                 return new ModulesScope(selectedModules, project);
-            case DIRECTORY:
+            case DIRECTORY_LIMITED:
                 System.out.println("(getSearchScope) Directory scope not implemented");
                 break;
             default:
@@ -627,16 +673,18 @@ public class CallGraphToolWindow {
 
     @NotNull
     private BuildOption getSelectedBuildOption() {
+        boolean isLimitedScope = this.upstreamDownstreamScopeCheckbox.isSelected();
         if (this.projectScopeButton.isSelected()) {
             if (this.includeTestFilesCheckBox.isSelected()) {
-                return BuildOption.WHOLE_PROJECT_WITH_TEST;
-            } else {
-                return BuildOption.WHOLE_PROJECT_WITHOUT_TEST;
+                return isLimitedScope ?
+                        BuildOption.WHOLE_PROJECT_WITH_TEST_LIMITED : BuildOption.WHOLE_PROJECT_WITH_TEST;
             }
+            return isLimitedScope ?
+                    BuildOption.WHOLE_PROJECT_WITHOUT_TEST_LIMITED : BuildOption.WHOLE_PROJECT_WITHOUT_TEST;
         } else if (this.moduleScopeButton.isSelected()) {
-            return BuildOption.MODULE;
+            return isLimitedScope ? BuildOption.MODULE_LIMITED : BuildOption.MODULE;
         } else if (this.directoryScopeButton.isSelected()) {
-            return BuildOption.DIRECTORY;
+            return isLimitedScope ? BuildOption.DIRECTORY_LIMITED : BuildOption.DIRECTORY;
         }
         return BuildOption.WHOLE_PROJECT_WITH_TEST;
     }
