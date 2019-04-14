@@ -7,7 +7,8 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
     private Canvas canvas;
     private Point2D lastMousePosition;
 
-    void init(@NotNull Canvas canvas) {
+    MouseEventHandler(@NotNull Canvas canvas) {
+        super();
         this.canvas = canvas;
     }
 

@@ -1,5 +1,4 @@
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectFileIndex;
+import com.intellij.openapi.project.Project; import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
@@ -50,10 +49,8 @@ class Canvas extends JPanel {
         return this;
     }
 
-    @NotNull
-    Canvas setCallGraphToolWindow(@NotNull CallGraphToolWindow callGraphToolWindow) {
+    void setCallGraphToolWindow(@NotNull CallGraphToolWindow callGraphToolWindow) {
         this.callGraphToolWindow = callGraphToolWindow;
-        return this;
     }
 
     @NotNull
