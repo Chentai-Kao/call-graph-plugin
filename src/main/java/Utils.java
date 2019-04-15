@@ -139,12 +139,12 @@ class Utils {
     }
 
     static void layout(@NotNull Graph graph) {
+        // construct the GraphViz graph
         guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
                 .setDirected(true)
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
-
-        Collection<Node> sortedNodes = getSortedNodes(graph.getNodes());
+        Collection<Node> sortedNodes = sortNodesByName(graph.getNodes());
         sortedNodes.forEach(node -> {
             MutableNode gvNode = mutNode(node.getId());
             Set<Node> neighbors = node.getLeavingEdges()
@@ -152,7 +152,7 @@ class Utils {
                     .stream()
                     .map(Edge::getTargetNode)
                     .collect(Collectors.toSet());
-            Collection<Node> sortedNeighbors = getSortedNodes(neighbors);
+            Collection<Node> sortedNeighbors = sortNodesByName(neighbors);
             sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
             gvGraph.add(gvNode);
         });
@@ -194,8 +194,9 @@ class Utils {
                         )
                 ));
 
-        //  normalize grid size on x and y axis
+        // normalize grid size on x and y axis
         Map<String, Point2D> normalizedBlueprint = normalizeBlueprintGridSize(viewportBlueprint);
+        // save the layout (x, y) coordinate to every node on the graph object
         normalizedBlueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setPoint(point));
     }
 
@@ -405,7 +406,7 @@ class Utils {
     }
 
     @NotNull
-    private static Collection<Node> getSortedNodes(@NotNull Collection<Node> nodes) {
+    private static Collection<Node> sortNodesByName(@NotNull Collection<Node> nodes) {
         List<Node> sortedNodes = new ArrayList<>(nodes);
         sortedNodes.sort(Comparator.comparing(node -> node.getMethod().getName()));
         return sortedNodes;
