@@ -63,13 +63,15 @@ class Canvas extends JPanel {
                 .forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.unHighlightedColor));
 
         // draw upstream/downstream edges
-        Set<Edge> upstreamEdges = this.graph.getEdges()
+        Set<Node> highlightedNodes = this.graph.getNodes()
                 .stream()
-                .filter(edge -> isNodeHighlighted(edge.getTargetNode()) && edge.getSourceNode() != edge.getTargetNode())
+                .filter(this::isNodeHighlighted)
                 .collect(Collectors.toSet());
-        Set<Edge> downstreamEdges = this.graph.getEdges()
-                .stream()
-                .filter(edge -> isNodeHighlighted(edge.getSourceNode()) && edge.getSourceNode() != edge.getTargetNode())
+        Set<Edge> upstreamEdges = highlightedNodes.stream()
+                .flatMap(node -> node.getInEdges().values().stream())
+                .collect(Collectors.toSet());
+        Set<Edge> downstreamEdges = highlightedNodes.stream()
+                .flatMap(node -> node.getOutEdges().values().stream())
                 .collect(Collectors.toSet());
         upstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.upstreamColor));
         downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.downstreamColor));
@@ -79,11 +81,13 @@ class Canvas extends JPanel {
         Set<Node> downstreamNodes = downstreamEdges.stream().map(Edge::getTargetNode).collect(Collectors.toSet());
         Set<Node> unHighlightedNodes = this.graph.getNodes()
                 .stream()
-                .filter(node -> !isNodeHighlighted(node) &&
-                        !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
+                .filter(node ->
+                        !isNodeHighlighted(node) && !upstreamNodes.contains(node) && !downstreamNodes.contains(node)
+                )
                 .collect(Collectors.toSet());
-        unHighlightedNodes.forEach(node -> drawSingleNodeLabel(
-                graphics2D, node, node.getMethod().getName(), this.unHighlightedTextColor));
+        unHighlightedNodes.forEach(node ->
+                drawSingleNodeLabel(graphics2D, node, node.getMethod().getName(), this.unHighlightedTextColor)
+        );
 
         // draw un-highlighted nodes (upstream/downstream nodes are excluded)
         this.nodeShapesMap = new HashMap<>();

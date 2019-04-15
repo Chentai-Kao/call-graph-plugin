@@ -7,7 +7,8 @@ import java.util.*;
 class Node {
     private final String id;
     private final PsiMethod method;
-    private final Map<String, Edge> leavingEdges = new HashMap<>();
+    private final Map<String, Edge> outEdges = new HashMap<>();
+    private final Map<String, Edge> inEdges = new HashMap<>();
     private Point2D point;
 
     Node(@NotNull String nodeId, @NotNull PsiMethod method) {
@@ -27,15 +28,26 @@ class Node {
         return this.point;
     }
 
-    void addLeavingEdge(@NotNull Edge edge) {
-        if (!this.leavingEdges.containsKey(edge.getId())) {
-            this.leavingEdges.put(edge.getId(), edge);
+    void addInEdge(@NotNull Edge edge) {
+        if (!this.inEdges.containsKey(edge.getId())) {
+            this.inEdges.put(edge.getId(), edge);
         }
     }
 
     @NotNull
-    Map<String, Edge> getLeavingEdges() {
-        return this.leavingEdges;
+    Map<String, Edge> getInEdges() {
+        return this.inEdges;
+    }
+
+    void addOutEdge(@NotNull Edge edge) {
+        if (!this.outEdges.containsKey(edge.getId())) {
+            this.outEdges.put(edge.getId(), edge);
+        }
+    }
+
+    @NotNull
+    Map<String, Edge> getOutEdges() {
+        return this.outEdges;
     }
 
     @NotNull

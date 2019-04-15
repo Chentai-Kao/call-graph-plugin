@@ -27,7 +27,8 @@ class Graph {
             Node targetNode = this.nodes.get(targetNodeId);
             Edge edge = new Edge(edgeId, sourceNode, targetNode);
             this.edges.put(edgeId, edge);
-            sourceNode.addLeavingEdge(edge);
+            sourceNode.addOutEdge(edge);
+            targetNode.addInEdge(edge);
         }
     }
 

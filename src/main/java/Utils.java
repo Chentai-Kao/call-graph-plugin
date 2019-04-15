@@ -144,16 +144,19 @@ class Utils {
                 .setDirected(true)
                 .graphAttrs()
                 .add(RankDir.LEFT_TO_RIGHT);
-        Collection<Node> sortedNodes = sortNodesByName(graph.getNodes());
+        List<Node> sortedNodes = graph.getNodes()
+                .stream()
+                .sorted(Comparator.comparing(n -> n.getMethod().getName()))
+                .collect(Collectors.toList());
         sortedNodes.forEach(node -> {
             MutableNode gvNode = mutNode(node.getId());
-            Set<Node> neighbors = node.getLeavingEdges()
+            List<Node> sortedDownstreamNodes = node.getOutEdges()
                     .values()
                     .stream()
                     .map(Edge::getTargetNode)
-                    .collect(Collectors.toSet());
-            Collection<Node> sortedNeighbors = sortNodesByName(neighbors);
-            sortedNeighbors.forEach(neighborNode -> gvNode.addLink(neighborNode.getId()));
+                    .sorted(Comparator.comparing(n -> n.getMethod().getName()))
+                    .collect(Collectors.toList());
+            sortedDownstreamNodes.forEach(downstreamNode -> gvNode.addLink(downstreamNode.getId()));
             gvGraph.add(gvNode);
         });
         String layoutRawText = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
@@ -403,13 +406,6 @@ class Utils {
                 .map(index -> (int) (sortedValues.get(index + 1) - sortedValues.get(index)))
                 .sum();
         return (float) totalDifference / elements.size();
-    }
-
-    @NotNull
-    private static Collection<Node> sortNodesByName(@NotNull Collection<Node> nodes) {
-        List<Node> sortedNodes = new ArrayList<>(nodes);
-        sortedNodes.sort(Comparator.comparing(node -> node.getMethod().getName()));
-        return sortedNodes;
     }
 
     @NotNull
