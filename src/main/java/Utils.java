@@ -1,10 +1,15 @@
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.module.impl.scopes.ModulesScope;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.roots.ContentIterator;
 import com.intellij.openapi.roots.ModuleRootManager;
+import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtilCore;
@@ -53,7 +58,29 @@ class Utils {
     }
 
     @NotNull
-    static Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForMethods(
+    static Map<PsiMethod, Set<PsiMethod>> getDependencyFromProject(
+            @NotNull CanvasConfig canvasConfig,
+            @NotNull Set<PsiMethod> allMethods) {
+        canvasConfig.getCallGraphToolWindow().resetDeterminateProgressBar(allMethods.size());
+        return allMethods.stream()
+                .collect(Collectors.toMap(
+                        method -> method,
+                        method -> {
+                            canvasConfig.getCallGraphToolWindow().incrementDeterminateProgressBar();
+                            SearchScope searchScope = getSearchScope(canvasConfig, method);
+                            return ReferencesSearch
+                                    .search(method, searchScope)
+                                    .findAll()
+                                    .stream()
+                                    .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
+                                    .filter(Objects::nonNull)
+                                    .collect(Collectors.toSet());
+                        }
+                ));
+    }
+
+    @NotNull
+    static Map<PsiMethod, Set<PsiMethod>> getDependencyFromMethods(
             @NotNull Set<PsiMethod> methods,
             @NotNull CanvasConfig canvasConfig) {
         canvasConfig.getCallGraphToolWindow().resetIndeterminateProgressBar();
@@ -102,7 +129,7 @@ class Utils {
     }
 
     @NotNull
-    static Set<PsiMethod> getAllMethodsForEntireProject(@NotNull CanvasConfig canvasConfig) {
+    static Set<PsiMethod> getAllMethodsFromProject(@NotNull CanvasConfig canvasConfig) {
         Set<PsiFile> allFiles = getSourceCodeRoots(canvasConfig)
                 .stream()
                 .flatMap(contentSourceRoot -> {
@@ -122,33 +149,12 @@ class Utils {
                 })
                 .collect(Collectors.toSet());
         return allFiles.stream()
-                .flatMap(psiFile -> Stream.of(((PsiJavaFile)psiFile).getClasses())) // get all classes
+                .flatMap(psiFile -> Stream.of(((PsiJavaFile) psiFile).getClasses())) // get all classes
                 .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
                 .collect(Collectors.toSet());
     }
 
-    @NotNull
-    static Map<PsiMethod, Set<PsiMethod>> getMethodCallersMapForEntireProject(
-            @NotNull CanvasConfig canvasConfig,
-            @NotNull Set<PsiMethod> allMethods) {
-        canvasConfig.getCallGraphToolWindow().resetDeterminateProgressBar(allMethods.size());
-        return allMethods.stream()
-                .collect(Collectors.toMap(
-                        method -> method,
-                        method -> {
-                            SearchScope searchScope = getSearchScope(canvasConfig, method);
-                            Collection<PsiReference> references =
-                                    ReferencesSearch.search(method, searchScope).findAll();
-                            canvasConfig.getCallGraphToolWindow().incrementDeterminateProgressBar();
-                            return references.stream()
-                                    .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
-                                    .filter(Objects::nonNull)
-                                    .collect(Collectors.toSet());
-                        }
-                ));
-    }
-
-    static void layoutByGraphViz(@NotNull Graph graph) {
+    static void layout(@NotNull Graph graph) {
         guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
                 .setDirected(true)
                 .graphAttrs()
@@ -206,9 +212,64 @@ class Utils {
 
         //  normalize grid size on x and y axis
         Map<String, Point2D> normalizedBlueprint = normalizeBlueprintGridSize(viewportBlueprint);
-        normalizedBlueprint.forEach((nodeId, point) ->
-                graph.getNode(nodeId).setCoordinate((float) point.getX(), (float) point.getY())
-        );
+        normalizedBlueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setPoint(point));
+    }
+
+    static void runBackgroundTask(@NotNull Project project, @NotNull Runnable runnable) {
+        ProgressManager.getInstance()
+                .run(new Task.Backgroundable(project, "Call Graph") {
+                         public void run(@NotNull ProgressIndicator progressIndicator) {
+                             ApplicationManager
+                                     .getApplication()
+                                     .runReadAction(runnable);
+                         }
+                     }
+                );
+    }
+
+    @NotNull
+    static String getFunctionPackageName(@NotNull PsiMethod psiMethod) {
+        // get class name
+        PsiClass psiClass = psiMethod.getContainingClass();
+        String className = psiClass == null || psiClass.getQualifiedName() == null ? "" : psiClass.getQualifiedName();
+        // get package name
+        PsiJavaFile psiJavaFile = (PsiJavaFile) psiMethod.getContainingFile();
+        if (psiJavaFile != null) {
+            PsiPackageStatement psiPackageStatement = psiJavaFile.getPackageStatement();
+            if (psiPackageStatement != null) {
+                return String.format("%s.%s", psiPackageStatement.getPackageName(), className);
+            }
+        }
+        // no package, just return class name
+        return className;
+    }
+
+    @NotNull
+    static String getFunctionFilePath(@NotNull PsiMethod method) {
+        PsiFile psiFile = PsiTreeUtil.getParentOfType(method, PsiFile.class);
+        if (psiFile != null) {
+            VirtualFile currentFile = psiFile.getVirtualFile();
+            Project project = getActiveProject();
+            if (project != null) {
+                VirtualFile rootFile = ProjectFileIndex.SERVICE.getInstance(project).getContentRootForFile(currentFile);
+                if (rootFile != null) {
+                    String relativePath = VfsUtilCore.getRelativePath(currentFile, rootFile);
+                    if (relativePath != null) {
+                        return relativePath;
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
+    @NotNull
+    static String getFunctionSignature(@NotNull PsiMethod method) {
+        String parameterNames = Stream.of(method.getParameterList().getParameters())
+                .map(PsiNamedElement::getName)
+                .collect(Collectors.joining(", "));
+        String parameters = parameterNames.isEmpty() ? "" : String.format("(%s)", parameterNames);
+        return String.format("%s%s", method.getName(), parameters);
     }
 
     @NotNull

@@ -1,7 +1,3 @@
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.progress.ProgressIndicator;
-import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -36,10 +32,10 @@ public class CallGraphToolWindow {
         this.canvasBuilder = new CanvasBuilder();
 
         // click handlers for buttons
-        this.runButton.addActionListener(e -> run(getSelectedBuildType()));
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
         this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
+        this.runButton.addActionListener(e -> run(getSelectedBuildType()));
         this.showOnlyUpstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM));
         this.showOnlyDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.DOWNSTREAM));
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
@@ -88,7 +84,8 @@ public class CallGraphToolWindow {
     private void run(@NotNull CanvasConfig.BuildType buildType) {
         Project project = Utils.getActiveProject();
         if (project != null) {
-            runInBackground(project, () -> {
+            Utils.runBackgroundTask(project, () -> {
+                // set up the config object
                 String maybeModuleName = (String) this.moduleScopeComboBox.getSelectedItem();
                 CanvasConfig canvasConfig = new CanvasConfig()
                         .setProject(project)
@@ -97,8 +94,9 @@ public class CallGraphToolWindow {
                         .setSelectedDirectoryPath(this.directoryScopeTextField.getText())
                         .setFocusedNode(this.clickedNode)
                         .setCallGraphToolWindow(this);
+                // start building graph
                 setupUiBeforeRun(canvasConfig);
-                Canvas canvas = this.canvasBuilder.run(canvasConfig);
+                Canvas canvas = this.canvasBuilder.build(canvasConfig);
                 setupUiAfterRun(canvas);
             });
         }
@@ -135,18 +133,6 @@ public class CallGraphToolWindow {
             disableAllSecondaryOptions();
             this.directoryScopeTextField.setEnabled(true);
         }
-    }
-
-    private void runInBackground(@NotNull Project project, @NotNull Runnable runnable) {
-        ProgressManager.getInstance()
-                .run(new Task.Backgroundable(project, "Call Graph") {
-                         public void run(@NotNull ProgressIndicator progressIndicator) {
-                             ApplicationManager
-                                     .getApplication()
-                                     .runReadAction(runnable);
-                         }
-                     }
-                );
     }
 
     private void setupUiBeforeRun(@NotNull CanvasConfig canvasConfig) {
@@ -194,11 +180,14 @@ public class CallGraphToolWindow {
     }
 
     private void setupUiAfterRun(@NotNull Canvas canvas) {
+        // show the rendered canvas
         canvas.setCanvasPanel(this.canvasPanel)
                 .setCallGraphToolWindow(this);
         this.canvasPanel.add(canvas);
         this.canvasPanel.updateUI();
+        // hide progress bar
         this.loadingProgressBar.setVisible(false);
+        // reset some checkboxes
         this.viewPackageNameCheckBox.setEnabled(true);
         this.viewPackageNameCheckBox.setSelected(true);
         this.viewFilePathCheckBox.setEnabled(true);

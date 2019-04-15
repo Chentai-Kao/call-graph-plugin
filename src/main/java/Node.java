@@ -8,22 +8,23 @@ class Node {
     private final String id;
     private final PsiMethod method;
     private final Map<String, Edge> leavingEdges = new HashMap<>();
-    private float x;
-    private float y;
+    private Point2D point;
 
     Node(@NotNull String nodeId, @NotNull PsiMethod method) {
         this.id = nodeId;
         this.method = method;
     }
 
-    void setCoordinate(float x, float y) {
-        this.x = x;
-        this.y = y;
+    @SuppressWarnings("UnusedReturnValue")
+    @NotNull
+    Node setPoint(@NotNull Point2D point) {
+        this.point = point;
+        return this;
     }
 
     @NotNull
     Point2D getPoint() {
-        return new Point2D.Float(this.x, this.y);
+        return this.point;
     }
 
     void addLeavingEdge(@NotNull Edge edge) {
