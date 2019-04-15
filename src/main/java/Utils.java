@@ -92,35 +92,19 @@ class Utils {
                 buildType == CanvasConfig.BuildType.DIRECTORY ||
                 buildType == CanvasConfig.BuildType.UPSTREAM ||
                 buildType == CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM;
-        Map<PsiMethod, Set<PsiMethod>> upstreamMethodCallersMap = needsUpstream ?
-                getUpstreamMethodCallersMap(methods, new HashSet<>()) :
-                Collections.emptyMap();
-        // downstream mapping of { caller => callees }
+        Map<PsiMethod, Set<PsiMethod>> upstreamDependency = needsUpstream ?
+                getUpstreamDependency(methods, new HashSet<>()) : Collections.emptyMap();
+        // downstream mapping of { callee => callers }
         boolean needsDownstream = buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST ||
                 buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST ||
                 buildType == CanvasConfig.BuildType.MODULE ||
                 buildType == CanvasConfig.BuildType.DIRECTORY ||
                 buildType == CanvasConfig.BuildType.DOWNSTREAM ||
                 buildType == CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM;
-        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap = needsDownstream ?
-                getDownstreamMethodCalleesMap(methods, new HashSet<>()) :
-                Collections.emptyMap();
-        // reverse the key value relation of downstream mapping from { caller => callees } to { callee => callers }
-        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCallersMap = downstreamMethodCalleesMap.entrySet()
-                .stream()
-                .flatMap(entry -> {
-                    PsiMethod caller = entry.getKey();
-                    Set<PsiMethod> callees = entry.getValue();
-                    return callees.stream().map(callee ->
-                            new AbstractMap.SimpleEntry<>(callee, new HashSet<>(Collections.singletonList(caller))));
-                })
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
-                ));
+        Map<PsiMethod, Set<PsiMethod>> downstreamDependency = needsDownstream ?
+                getDownstreamDependency(methods) : Collections.emptyMap();
         return Stream
-                .concat(upstreamMethodCallersMap.entrySet().stream(), downstreamMethodCallersMap.entrySet().stream())
+                .concat(upstreamDependency.entrySet().stream(), downstreamDependency.entrySet().stream())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,
@@ -163,7 +147,7 @@ class Utils {
         Collection<Node> sortedNodes = getSortedNodes(graph.getNodes());
         sortedNodes.forEach(node -> {
             MutableNode gvNode = mutNode(node.getId());
-            Collection<Node> neighbors = node.getLeavingEdges()
+            Set<Node> neighbors = node.getLeavingEdges()
                     .values()
                     .stream()
                     .map(Edge::getTargetNode)
@@ -228,7 +212,7 @@ class Utils {
     }
 
     @NotNull
-    static String getFunctionPackageName(@NotNull PsiMethod psiMethod) {
+    static String getMethodPackageName(@NotNull PsiMethod psiMethod) {
         // get class name
         PsiClass psiClass = psiMethod.getContainingClass();
         String className = psiClass != null && psiClass.getQualifiedName() != null ? psiClass.getQualifiedName() : "";
@@ -245,7 +229,7 @@ class Utils {
     }
 
     @NotNull
-    static String getFunctionFilePath(@NotNull PsiMethod method) {
+    static String getMethodFilePath(@NotNull PsiMethod method) {
         PsiFile psiFile = PsiTreeUtil.getParentOfType(method, PsiFile.class);
         if (psiFile != null) {
             VirtualFile currentFile = psiFile.getVirtualFile();
@@ -264,7 +248,7 @@ class Utils {
     }
 
     @NotNull
-    static String getFunctionSignature(@NotNull PsiMethod method) {
+    static String getMethodSignature(@NotNull PsiMethod method) {
         String parameterNames = Stream.of(method.getParameterList().getParameters())
                 .map(PsiNamedElement::getName)
                 .collect(Collectors.joining(", "));
@@ -273,7 +257,7 @@ class Utils {
     }
 
     @NotNull
-    private static Map<PsiMethod, Set<PsiMethod>> getUpstreamMethodCallersMap(
+    private static Map<PsiMethod, Set<PsiMethod>> getUpstreamDependency(
             @NotNull Set<PsiMethod> methods,
             @NotNull Set<PsiMethod> seenMethods) {
         if (methods.isEmpty()) {
@@ -301,8 +285,29 @@ class Utils {
                 .flatMap(Collection::stream)
                 .filter(parent -> !seenMethods.contains(parent))
                 .collect(Collectors.toSet());
-        Map<PsiMethod, Set<PsiMethod>> indirectUpstream = getUpstreamMethodCallersMap(parents, seenMethods);
+        Map<PsiMethod, Set<PsiMethod>> indirectUpstream = getUpstreamDependency(parents, seenMethods);
         return Stream.concat(directUpstream.entrySet().stream(), indirectUpstream.entrySet().stream())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
+                ));
+    }
+
+    @NotNull
+    private static Map<PsiMethod, Set<PsiMethod>> getDownstreamDependency(@NotNull Set<PsiMethod> methods) {
+        // downstream mapping of { caller => callees }
+        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap =
+                getDownstreamMethodCalleesMap(methods, new HashSet<>());
+        // reverse the key value relation of downstream mapping from { caller => callees } to { callee => callers }
+        return downstreamMethodCalleesMap.entrySet()
+                .stream()
+                .flatMap(entry -> {
+                    PsiMethod caller = entry.getKey();
+                    Set<PsiMethod> callees = entry.getValue();
+                    return callees.stream().map(callee ->
+                            new AbstractMap.SimpleEntry<>(callee, new HashSet<>(Collections.singletonList(caller))));
+                })
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,
@@ -390,13 +395,13 @@ class Utils {
     }
 
     private static float getAverageElementDifference(@NotNull Set<Long> elements) {
-        List<Long> uniqueValues = elements.stream()
+        List<Long> sortedValues = elements.stream()
                 .sorted()
                 .collect(Collectors.toList());
-        int cumulativeDifference = IntStream.range(0, uniqueValues.size() - 1)
-                .map(index -> (int) (uniqueValues.get(index + 1) - uniqueValues.get(index)))
+        int totalDifference = IntStream.range(0, sortedValues.size() - 1)
+                .map(index -> (int) (sortedValues.get(index + 1) - sortedValues.get(index)))
                 .sum();
-        return (float) cumulativeDifference / elements.size();
+        return (float) totalDifference / elements.size();
     }
 
     @NotNull
@@ -407,9 +412,7 @@ class Utils {
     }
 
     @NotNull
-    private static SearchScope getSearchScope(
-            @NotNull CanvasConfig canvasConfig,
-            @NotNull PsiMethod method) {
+    private static SearchScope getSearchScope(@NotNull CanvasConfig canvasConfig, @NotNull PsiMethod method) {
         switch (canvasConfig.getBuildType()) {
             case WHOLE_PROJECT_WITH_TEST_LIMITED:
                 return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));

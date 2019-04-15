@@ -63,11 +63,11 @@ class Canvas extends JPanel {
                 .forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.unHighlightedColor));
 
         // draw upstream/downstream edges
-        Collection<Edge> upstreamEdges = this.graph.getEdges()
+        Set<Edge> upstreamEdges = this.graph.getEdges()
                 .stream()
                 .filter(edge -> isNodeHighlighted(edge.getTargetNode()) && edge.getSourceNode() != edge.getTargetNode())
                 .collect(Collectors.toSet());
-        Collection<Edge> downstreamEdges = this.graph.getEdges()
+        Set<Edge> downstreamEdges = this.graph.getEdges()
                 .stream()
                 .filter(edge -> isNodeHighlighted(edge.getSourceNode()) && edge.getSourceNode() != edge.getTargetNode())
                 .collect(Collectors.toSet());
@@ -75,11 +75,9 @@ class Canvas extends JPanel {
         downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.downstreamColor));
 
         // draw un-highlighted labels
-        Collection<Node> upstreamNodes =
-                upstreamEdges.stream().map(Edge::getSourceNode).collect(Collectors.toSet());
-        Collection<Node> downstreamNodes =
-                downstreamEdges.stream().map(Edge::getTargetNode).collect(Collectors.toSet());
-        Collection<Node> unHighlightedNodes = this.graph.getNodes()
+        Set<Node> upstreamNodes = upstreamEdges.stream().map(Edge::getSourceNode).collect(Collectors.toSet());
+        Set<Node> downstreamNodes = downstreamEdges.stream().map(Edge::getTargetNode).collect(Collectors.toSet());
+        Set<Node> unHighlightedNodes = this.graph.getNodes()
                 .stream()
                 .filter(node -> !isNodeHighlighted(node) &&
                         !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
@@ -97,10 +95,12 @@ class Canvas extends JPanel {
                 });
 
         // draw upstream/downstream label and nodes
-        upstreamNodes.forEach(node -> drawSingleNodeLabel(
-                graphics2D, node, node.getMethod().getName(), this.upstreamColor));
-        downstreamNodes.forEach(node -> drawSingleNodeLabel(
-                graphics2D, node, node.getMethod().getName(), this.downstreamColor));
+        upstreamNodes.forEach(node ->
+                drawSingleNodeLabel(graphics2D, node, node.getMethod().getName(), this.upstreamColor)
+        );
+        downstreamNodes.forEach(node ->
+                drawSingleNodeLabel(graphics2D, node, node.getMethod().getName(), this.downstreamColor)
+        );
         upstreamNodes.forEach(node -> {
             Shape nodeShape = drawNode(graphics2D, node, this.upstreamColor);
             this.nodeShapesMap.put(nodeShape, node);
@@ -119,11 +119,11 @@ class Canvas extends JPanel {
                     Shape nodeShape = drawNode(graphics2D, node, this.highlightedColor);
                     this.nodeShapesMap.put(nodeShape, node);
                     // draw labels (stacked up)
-                    String signature = Utils.getFunctionSignature(node.getMethod());
+                    String signature = Utils.getMethodSignature(node.getMethod());
                     String packageName = this.callGraphToolWindow.isRenderFunctionPackageName() ?
-                            Utils.getFunctionPackageName(node.getMethod()) : "";
+                            Utils.getMethodPackageName(node.getMethod()) : "";
                     String filePath = this.callGraphToolWindow.isRenderFunctionFilePath() ?
-                            Utils.getFunctionFilePath(node.getMethod()) : "";
+                            Utils.getMethodFilePath(node.getMethod()) : "";
                     List<AbstractMap.SimpleEntry<String, Color>> labels =
                             Stream.of(
                                     new AbstractMap.SimpleEntry<>(signature, this.highlightedColor),
