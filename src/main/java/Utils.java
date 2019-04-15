@@ -231,7 +231,7 @@ class Utils {
     static String getFunctionPackageName(@NotNull PsiMethod psiMethod) {
         // get class name
         PsiClass psiClass = psiMethod.getContainingClass();
-        String className = psiClass == null || psiClass.getQualifiedName() == null ? "" : psiClass.getQualifiedName();
+        String className = psiClass != null && psiClass.getQualifiedName() != null ? psiClass.getQualifiedName() : "";
         // get package name
         PsiJavaFile psiJavaFile = (PsiJavaFile) psiMethod.getContainingFile();
         if (psiJavaFile != null) {
