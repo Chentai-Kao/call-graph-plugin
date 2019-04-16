@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.mutNode;
+import static java.util.Collections.*;
 
 class Utils {
     @Nullable
@@ -139,68 +140,16 @@ class Utils {
     }
 
     static void layout(@NotNull Graph graph) {
-        // construct the GraphViz graph
-        guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
-                .setDirected(true)
-                .graphAttrs()
-                .add(RankDir.LEFT_TO_RIGHT);
-        List<Node> sortedNodes = graph.getNodes()
+        // get connected components from the graph, and render each part separately
+        Set<Map<String, Point2D>> subGraphBlueprints = graph.getConnectedComponents()
                 .stream()
-                .sorted(Comparator.comparing(n -> n.getMethod().getName()))
-                .collect(Collectors.toList());
-        sortedNodes.forEach(node -> {
-            MutableNode gvNode = mutNode(node.getId());
-            List<Node> sortedDownstreamNodes = node.getOutEdges()
-                    .values()
-                    .stream()
-                    .map(Edge::getTargetNode)
-                    .sorted(Comparator.comparing(n -> n.getMethod().getName()))
-                    .collect(Collectors.toList());
-            sortedDownstreamNodes.forEach(downstreamNode -> gvNode.addLink(downstreamNode.getId()));
-            gvGraph.add(gvNode);
-        });
-        String layoutRawText = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
+                .map(Utils::getLayoutFromGraphViz)
+                .map(Utils::normalizeBlueprintGridSize)
+                .collect(Collectors.toSet());
 
-        // parse the GraphViz layout as a mapping from "node name" to "x-y coordinate (percent of full graph size)"
-        // GraphViz doc: https://graphviz.gitlab.io/_pages/doc/info/output.html#d:plain
-        List<String> layoutLines = Arrays.asList(layoutRawText.split("\n"));
-        Map<String, Point2D> blueprint = layoutLines.stream()
-                .filter(line -> line.startsWith("node"))
-                .map(line -> line.split(" "))
-                .collect(Collectors.toMap(
-                        parts -> parts[1],
-                        parts -> new Point2D.Float(Float.parseFloat(parts[2]), Float.parseFloat(parts[3]))
-                ));
-
-        // adjust node coordinates so they fit in the view
-        Point2D maxPoint = blueprint.values()
-                .stream()
-                .reduce((pointA, pointB) -> new Point2D.Double(
-                        Math.max(pointA.getX(), pointB.getX()), Math.max(pointA.getY(), pointB.getY())))
-                .orElse(new Point2D.Double(1, 1));
-        Point2D minPoint = blueprint.values()
-                .stream()
-                .reduce((pointA, pointB) -> new Point2D.Double(
-                        Math.min(pointA.getX(), pointB.getX()), Math.min(pointA.getY(), pointB.getY())))
-                .orElse(new Point2D.Double(0, 0));
-        double xSize = maxPoint.getX() - minPoint.getX();
-        double ySize = maxPoint.getY() - minPoint.getY();
-        double bestFitBaseline = 0.1; // make the best fit window between 0.1 - 0.9 of the viewport
-        double bestFitSize = 1 - 2 * bestFitBaseline;
-        Map<String, Point2D> viewportBlueprint = blueprint.entrySet()
-                .stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> new Point2D.Double(
-                                (entry.getValue().getX() - minPoint.getX()) / xSize * bestFitSize + bestFitBaseline,
-                                (entry.getValue().getY() - minPoint.getY()) / ySize * bestFitSize + bestFitBaseline
-                        )
-                ));
-
-        // normalize grid size on x and y axis
-        Map<String, Point2D> normalizedBlueprint = normalizeBlueprintGridSize(viewportBlueprint);
-        // save the layout (x, y) coordinate to every node on the graph object
-        normalizedBlueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setPoint(point));
+        // merge all connected components to a single graph, then adjust node coordinates so they fit in the view
+        Map<String, Point2D> mergedBlueprint = Utils.mergeLayouts(new ArrayList<>(subGraphBlueprints));
+        applyLayoutBlueprintToGraph(mergedBlueprint, graph);
     }
 
     static void runBackgroundTask(@NotNull Project project, @NotNull Runnable runnable) {
@@ -213,6 +162,10 @@ class Utils {
                          }
                      }
                 );
+    }
+
+    static void applyLayoutBlueprintToGraph(@NotNull Map<String, Point2D> blueprint, @NotNull Graph graph) {
+        blueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setPoint(point));
     }
 
     @NotNull
@@ -258,6 +211,33 @@ class Utils {
                 .collect(Collectors.joining(", "));
         String parameters = parameterNames.isEmpty() ? "" : String.format("(%s)", parameterNames);
         return String.format("%s%s", method.getName(), parameters);
+    }
+
+    @NotNull
+    static Map<String, Point2D> fitLayoutToViewport(@NotNull Map<String, Point2D> blueprint) {
+        Point2D maxPoint = blueprint.values()
+                .stream()
+                .reduce((pointA, pointB) -> new Point2D.Double(
+                        Math.max(pointA.getX(), pointB.getX()), Math.max(pointA.getY(), pointB.getY())))
+                .orElse(new Point2D.Double(1, 1));
+        Point2D minPoint = blueprint.values()
+                .stream()
+                .reduce((pointA, pointB) -> new Point2D.Double(
+                        Math.min(pointA.getX(), pointB.getX()), Math.min(pointA.getY(), pointB.getY())))
+                .orElse(new Point2D.Double(0, 0));
+        double xSize = maxPoint.getX() - minPoint.getX();
+        double ySize = maxPoint.getY() - minPoint.getY();
+        double bestFitBaseline = 0.1; // make the best fit window between 0.1 - 0.9 of the viewport
+        double bestFitSize = 1 - 2 * bestFitBaseline;
+        return blueprint.entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> new Point2D.Double(
+                                (entry.getValue().getX() - minPoint.getX()) / xSize * bestFitSize + bestFitBaseline,
+                                (entry.getValue().getY() - minPoint.getY()) / ySize * bestFitSize + bestFitBaseline
+                        )
+                ));
     }
 
     @NotNull
@@ -369,36 +349,45 @@ class Utils {
     }
 
     @NotNull
-    private static Map<String, Point2D> normalizeBlueprintGridSize(@NotNull Map<String, Point2D> blueprint) {
+    private static Point2D getGridSize(@NotNull Map<String, Point2D> blueprint) {
         float precisionFactor = 1000;
-        if (blueprint.size() < 2) {
-            return blueprint;
-        }
-        Set<Long> uniqueValuesX = blueprint.values()
+        Set<Long> xUniqueValues = blueprint.values()
                 .stream()
                 .map(point -> Math.round(precisionFactor * point.getX()))
                 .collect(Collectors.toSet());
-        Set<Long> uniqueValuesY = blueprint.values()
+        Set<Long> yUniqueValues = blueprint.values()
                 .stream()
                 .map(point -> Math.round(precisionFactor * point.getY()))
                 .collect(Collectors.toSet());
-        // to achieve equal xy grid size, only allow the graph to shrink (not grow) to keep it within the viewport
-        float xyRatio = 0.3f * getAverageElementDifference(uniqueValuesX) / getAverageElementDifference(uniqueValuesY);
-        float xFactor = Math.min(1, 1 / xyRatio);
-        float yFactor = Math.min(1, xyRatio);
-        float centralLine = 0.5f;
+        return new Point2D.Float(
+                getAverageElementDifference(xUniqueValues) / precisionFactor,
+                getAverageElementDifference(yUniqueValues) / precisionFactor
+        );
+    }
+
+    @NotNull
+    private static Map<String, Point2D> normalizeBlueprintGridSize(@NotNull Map<String, Point2D> blueprint) {
+        if (blueprint.size() < 2) {
+            return blueprint;
+        }
+        Point2D gridSize = getGridSize(blueprint);
+        Point2D desiredGridSize = new Point2D.Float(0.1f, 0.1f);
+        float xFactor = (float) (desiredGridSize.getX() / gridSize.getX());
+        float yFactor = (float) (desiredGridSize.getY() / gridSize.getY());
         return blueprint.entrySet()
                 .stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         entry -> new Point2D.Float(
-                                (float) (entry.getValue().getX() - centralLine) * xFactor + centralLine,
-                                (float) (entry.getValue().getY() - centralLine) * yFactor + centralLine
-                        )
+                                (float) entry.getValue().getX() * xFactor,
+                                (float) entry.getValue().getY() * yFactor)
                 ));
     }
 
     private static float getAverageElementDifference(@NotNull Set<Long> elements) {
+        if (elements.isEmpty()) {
+            return 0;
+        }
         List<Long> sortedValues = elements.stream()
                 .sorted()
                 .collect(Collectors.toList());
@@ -474,5 +463,99 @@ class Utils {
                 break;
         }
         return Collections.emptySet();
+    }
+
+    @NotNull
+    private static Map<String, Point2D> getLayoutFromGraphViz(@NotNull Graph graph) {
+        // construct the GraphViz graph
+        guru.nidi.graphviz.model.MutableGraph gvGraph = mutGraph("test")
+                .setDirected(true)
+                .graphAttrs()
+                .add(RankDir.LEFT_TO_RIGHT);
+        List<Node> sortedNodes = graph.getNodes()
+                .stream()
+                .sorted(Comparator.comparing(n -> n.getMethod().getName()))
+                .collect(Collectors.toList());
+        sortedNodes.forEach(node -> {
+            MutableNode gvNode = mutNode(node.getId());
+            List<Node> sortedDownstreamNodes = node.getOutEdges()
+                    .values()
+                    .stream()
+                    .map(Edge::getTargetNode)
+                    .sorted(Comparator.comparing(n -> n.getMethod().getName()))
+                    .collect(Collectors.toList());
+            sortedDownstreamNodes.forEach(downstreamNode -> gvNode.addLink(downstreamNode.getId()));
+            gvGraph.add(gvNode);
+        });
+
+        // parse the GraphViz layout as a mapping from "node name" to "x-y coordinate (percent of full graph size)"
+        // GraphViz doc: https://graphviz.gitlab.io/_pages/doc/info/output.html#d:plain
+        String layoutRawText = Graphviz.fromGraph(gvGraph).render(Format.PLAIN).toString();
+        String[] lines = layoutRawText.split("\n");
+        return Arrays.stream(lines)
+                .filter(line -> line.startsWith("node"))
+                .map(line -> line.split(" "))
+                .collect(Collectors.toMap(
+                        parts -> parts[1], // node ID
+                        parts -> new Point2D.Float(Float.parseFloat(parts[2]), Float.parseFloat(parts[3])) // (x, y)
+                ));
+    }
+
+    @NotNull
+    private static Map<String, Point2D> mergeLayouts(@NotNull List<Map<String, Point2D>> blueprints) {
+        float padding = 0.1f;
+        Map<Map<String, Point2D>, Float> blueprintHeights = blueprints.stream()
+                .collect(Collectors.toMap(
+                        blueprint -> blueprint,
+                        blueprint -> {
+                            Set<Float> yPoints = blueprint.values()
+                                    .stream()
+                                    .map(point -> (float) point.getY())
+                                    .collect(Collectors.toSet());
+                            return max(yPoints) - min(yPoints) + padding;
+                        })
+                );
+        List<Map<String, Point2D>> sortedBlueprints = blueprintHeights.entrySet()
+                .stream()
+                .sorted(Comparator.comparing(entry -> -entry.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        List<Float> sortedHeights = blueprintHeights.values()
+                .stream()
+                .sorted(Comparator.comparing(height -> -height))
+                .collect(Collectors.toList());
+        return IntStream.range(0, sortedBlueprints.size())
+                .mapToObj(index -> {
+                    // calculate the y-offset of this sub-graph (by summing up all the height of previous sub-graphs)
+                    float yOffset = (float) sortedHeights.subList(0, index)
+                            .stream()
+                            .mapToDouble(Float::doubleValue)
+                            .sum();
+                    // left align the graph by the left-most nodes, then centering the baseline
+                    Map<String, Point2D> blueprint = sortedBlueprints.get(index);
+                    float minX = (float) blueprint.values()
+                            .stream()
+                            .map(Point2D::getX)
+                            .mapToDouble(Double::doubleValue)
+                            .min()
+                            .orElse(0);
+                    float xBaseline = 0.5f;
+                    //noinspection UnnecessaryLocalVariable
+                    Map<String, Point2D> shiftedBlueprint = blueprint.entrySet()
+                            .stream()
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    entry -> new Point2D.Float(
+                                            (float) entry.getValue().getX() - minX + xBaseline,
+                                            (float) entry.getValue().getY() + yOffset
+                                    )
+                            ));
+                    return shiftedBlueprint;
+                })
+                .reduce((blueprintA, blueprintB) ->
+                    Stream.concat(blueprintA.entrySet().stream(), blueprintB.entrySet().stream())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                )
+                .orElse(new HashMap<>());
     }
 }

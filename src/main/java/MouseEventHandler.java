@@ -4,7 +4,7 @@ import java.awt.event.*;
 import java.awt.geom.Point2D;
 
 class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
-    private Canvas canvas;
+    private final Canvas canvas;
     private Point2D lastMousePosition;
 
     MouseEventHandler(@NotNull Canvas canvas) {

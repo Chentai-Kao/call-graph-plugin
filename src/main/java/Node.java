@@ -3,6 +3,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.awt.geom.Point2D;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 class Node {
     private final String id;
@@ -48,6 +50,13 @@ class Node {
     @NotNull
     Map<String, Edge> getOutEdges() {
         return this.outEdges;
+    }
+
+    @NotNull
+    Set<Node> getNeighbors() {
+        Stream<Node> upstreamNodes = this.inEdges.values().stream().map(Edge::getSourceNode);
+        Stream<Node> downstreamNodes = this.outEdges.values().stream().map(Edge::getTargetNode);
+        return Stream.concat(upstreamNodes, downstreamNodes).collect(Collectors.toSet());
     }
 
     @NotNull

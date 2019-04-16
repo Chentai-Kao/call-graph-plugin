@@ -12,14 +12,16 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 class Canvas extends JPanel {
-    private Graph graph;
+    private final Graph graph;
     private JPanel canvasPanel;
     private CallGraphToolWindow callGraphToolWindow;
     private Map<Shape, Node> nodeShapesMap;
     private Node hoveredNode;
     private Node clickedNode;
-    private Point2D cameraOrigin = new Point2D.Float(0, 0);
-    private float zoomRatio = 1.0f;
+    private final Point2D defaultCameraOrigin = new Point2D.Float(0, 0);
+    private final float defaultZoomRatio = 1.0f;
+    private Point2D cameraOrigin = defaultCameraOrigin;
+    private float zoomRatio = defaultZoomRatio;
     private final int nodeRadius = 5;
     private final int nodeDiameter = 2 * nodeRadius;
     private final float regularLineWidth = 1.0f;
@@ -203,6 +205,17 @@ class Canvas extends JPanel {
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElse(null);
+    }
+
+    void fitCanvasToView() {
+        Map<String, Point2D> blueprint = this.graph.getNodes()
+                .stream()
+                .collect(Collectors.toMap(Node::getId, Node::getPoint));
+        Map<String, Point2D> bestFitBlueprint = Utils.fitLayoutToViewport(blueprint);
+        Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph);
+        this.cameraOrigin = defaultCameraOrigin;
+        this.zoomRatio = defaultZoomRatio;
+        repaint();
     }
 
     @NotNull

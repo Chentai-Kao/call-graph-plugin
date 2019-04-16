@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 
+@SuppressWarnings("WeakerAccess")
 public class CallGraphToolWindow {
     private JButton runButton;
     private JPanel callGraphToolWindowContent;
@@ -23,14 +24,13 @@ public class CallGraphToolWindow {
     private JCheckBox upstreamDownstreamScopeCheckbox;
     private JCheckBox viewPackageNameCheckBox;
     private JCheckBox viewFilePathCheckBox;
+    private JButton fitGraphToViewButton;
 
-    private CanvasBuilder canvasBuilder;
+    private final CanvasBuilder canvasBuilder = new CanvasBuilder();
+    private Canvas canvas;
     private Node clickedNode;
 
-    @SuppressWarnings("WeakerAccess")
     public CallGraphToolWindow() {
-        this.canvasBuilder = new CanvasBuilder();
-
         // click handlers for buttons
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
@@ -39,6 +39,7 @@ public class CallGraphToolWindow {
         this.showOnlyUpstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM));
         this.showOnlyDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.DOWNSTREAM));
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
+        this.fitGraphToViewButton.addActionListener(e -> fitGraphToViewButtonHandler());
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -96,8 +97,8 @@ public class CallGraphToolWindow {
                         .setCallGraphToolWindow(this);
                 // start building graph
                 setupUiBeforeRun(canvasConfig);
-                Canvas canvas = this.canvasBuilder.build(canvasConfig);
-                setupUiAfterRun(canvas);
+                this.canvas = this.canvasBuilder.build(canvasConfig);
+                setupUiAfterRun();
             });
         }
     }
@@ -132,6 +133,12 @@ public class CallGraphToolWindow {
             this.directoryScopeTextField.setText(project.getBasePath());
             disableAllSecondaryOptions();
             this.directoryScopeTextField.setEnabled(true);
+        }
+    }
+
+    private void fitGraphToViewButtonHandler() {
+        if (this.canvas != null) {
+            this.canvas.fitCanvasToView();
         }
     }
 
@@ -179,11 +186,12 @@ public class CallGraphToolWindow {
         this.canvasPanel.removeAll();
     }
 
-    private void setupUiAfterRun(@NotNull Canvas canvas) {
+    private void setupUiAfterRun() {
         // show the rendered canvas
-        canvas.setCanvasPanel(this.canvasPanel)
+        this.canvas
+                .setCanvasPanel(this.canvasPanel)
                 .setCallGraphToolWindow(this);
-        this.canvasPanel.add(canvas);
+        this.canvasPanel.add(this.canvas);
         this.canvasPanel.updateUI();
         // hide progress bar
         this.loadingProgressBar.setVisible(false);
