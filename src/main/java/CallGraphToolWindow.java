@@ -3,6 +3,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.awt.geom.Point2D;
 
 @SuppressWarnings("WeakerAccess")
 public class CallGraphToolWindow {
@@ -26,6 +27,10 @@ public class CallGraphToolWindow {
     private JCheckBox viewFilePathCheckBox;
     private JButton fitGraphToViewButton;
     private JButton fitGraphToBestRatioButton;
+    private JButton increaseXGridButton;
+    private JButton decreaseXGridButton;
+    private JButton increaseYGridButton;
+    private JButton decreaseYGridButton;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
@@ -42,6 +47,10 @@ public class CallGraphToolWindow {
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
         this.fitGraphToViewButton.addActionListener(e -> fitGraphToViewButtonHandler());
         this.fitGraphToBestRatioButton.addActionListener(e -> fitGraphToBestRatioButtonHandler());
+        this.increaseXGridButton.addActionListener(e -> gridSizeButtonHandler(true, true));
+        this.decreaseXGridButton.addActionListener(e -> gridSizeButtonHandler(true, false));
+        this.increaseYGridButton.addActionListener(e -> gridSizeButtonHandler(false, true));
+        this.decreaseYGridButton.addActionListener(e -> gridSizeButtonHandler(false, false));
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -150,6 +159,17 @@ public class CallGraphToolWindow {
         }
     }
 
+    private void gridSizeButtonHandler(boolean isXGrid, boolean isIncrease) {
+        float zoomFactor = isIncrease ? 1.25f : 1 / 1.25f;
+        float xZoomFactor = isXGrid ? zoomFactor : 1;
+        float yZoomFactor = isXGrid ? 1 : zoomFactor;
+        Point2D zoomCenter = new Point2D.Float(
+                0.5f * this.canvasPanel.getWidth(),
+                0.5f * this.canvasPanel.getHeight()
+        );
+        this.canvas.zoomAtPoint(zoomCenter, xZoomFactor, yZoomFactor);
+    }
+
     private void setupUiBeforeRun(@NotNull CanvasConfig canvasConfig) {
         // focus on the 'graph tab
         this.mainTabbedPanel.getComponentAt(1).setEnabled(true);
@@ -186,6 +206,10 @@ public class CallGraphToolWindow {
         this.viewFilePathCheckBox.setEnabled(false);
         this.fitGraphToBestRatioButton.setEnabled(false);
         this.fitGraphToViewButton.setEnabled(false);
+        this.increaseXGridButton.setEnabled(false);
+        this.decreaseXGridButton.setEnabled(false);
+        this.increaseYGridButton.setEnabled(false);
+        this.decreaseYGridButton.setEnabled(false);
         // upstream/downstream buttons
         this.showOnlyUpstreamButton.setEnabled(false);
         this.showOnlyDownstreamButton.setEnabled(false);
@@ -212,6 +236,10 @@ public class CallGraphToolWindow {
         this.viewFilePathCheckBox.setSelected(false);
         this.fitGraphToBestRatioButton.setEnabled(true);
         this.fitGraphToViewButton.setEnabled(true);
+        this.increaseXGridButton.setEnabled(true);
+        this.decreaseXGridButton.setEnabled(true);
+        this.increaseYGridButton.setEnabled(true);
+        this.decreaseYGridButton.setEnabled(true);
     }
 
     @NotNull

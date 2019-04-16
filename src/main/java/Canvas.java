@@ -21,7 +21,8 @@ class Canvas extends JPanel {
     private final Point2D defaultCameraOrigin = new Point2D.Float(0, 0);
     private final float defaultZoomRatio = 1.0f;
     private Point2D cameraOrigin = defaultCameraOrigin;
-    private float zoomRatio = defaultZoomRatio;
+    private float xZoomRatio = defaultZoomRatio;
+    private float yZoomRatio = defaultZoomRatio;
     private final int nodeRadius = 5;
     private final int nodeDiameter = 2 * nodeRadius;
     private final float regularLineWidth = 1.0f;
@@ -187,14 +188,28 @@ class Canvas extends JPanel {
         return this.cameraOrigin;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     @NotNull
-    Canvas setZoomRatio(float zoomRatio) {
-        this.zoomRatio = zoomRatio;
+    Canvas changeXZoomRatio(float zoomFactor) {
+        this.xZoomRatio *= zoomFactor;
         return this;
     }
 
-    float getZoomRatio() {
-        return this.zoomRatio;
+    @SuppressWarnings("UnusedReturnValue")
+    @NotNull
+    Canvas changeYZoomRatio(float zoomFactor) {
+        this.yZoomRatio *= zoomFactor;
+        return this;
+    }
+
+    void zoomAtPoint(@NotNull Point2D point, float xZoomFactor, float yZoomFactor) {
+        this.cameraOrigin = new Point2D.Float(
+                (float) (xZoomFactor * this.cameraOrigin.getX() + (xZoomFactor - 1) * point.getX()),
+                (float) (yZoomFactor * this.cameraOrigin.getY() + (yZoomFactor - 1) * point.getY())
+        );
+        this.xZoomRatio *= xZoomFactor;
+        this.yZoomRatio *= yZoomFactor;
+        repaint();
     }
 
     @Nullable
@@ -214,7 +229,8 @@ class Canvas extends JPanel {
         Map<String, Point2D> bestFitBlueprint = Utils.fitLayoutToViewport(blueprint);
         Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph);
         this.cameraOrigin = defaultCameraOrigin;
-        this.zoomRatio = defaultZoomRatio;
+        this.xZoomRatio = defaultZoomRatio;
+        this.yZoomRatio = defaultZoomRatio;
         repaint();
     }
 
@@ -227,7 +243,8 @@ class Canvas extends JPanel {
         Map<String, Point2D> mergedBlueprint = Utils.mergeLayouts(new ArrayList<>(subGraphBlueprints));
         Utils.applyLayoutBlueprintToGraph(mergedBlueprint, this.graph);
         this.cameraOrigin = defaultCameraOrigin;
-        this.zoomRatio = defaultZoomRatio;
+        this.xZoomRatio = defaultZoomRatio;
+        this.yZoomRatio = defaultZoomRatio;
         repaint();
     }
 
@@ -235,8 +252,8 @@ class Canvas extends JPanel {
     private Point2D toCameraView(@NotNull Point2D point) {
         Dimension canvasSize = this.canvasPanel.getSize();
         return new Point2D.Float(
-                (float) (this.zoomRatio * point.getX() * canvasSize.width - this.cameraOrigin.getX()),
-                (float) (this.zoomRatio * point.getY() * canvasSize.height - this.cameraOrigin.getY())
+                (float) (this.xZoomRatio * point.getX() * canvasSize.width - this.cameraOrigin.getX()),
+                (float) (this.yZoomRatio * point.getY() * canvasSize.height - this.cameraOrigin.getY())
         );
     }
 

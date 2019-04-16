@@ -213,7 +213,7 @@
                   </component>
                 </children>
               </grid>
-              <grid id="d029a" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+              <grid id="d029a" layout-manager="GridLayoutManager" row-count="4" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                 <margin top="0" left="0" bottom="0" right="0"/>
                 <constraints>
                   <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
@@ -231,7 +231,7 @@
                     </constraints>
                     <properties>
                       <enabled value="false"/>
-                      <text value="Show only &amp;upstream"/>
+                      <text value="Show &amp;upstream"/>
                     </properties>
                   </component>
                   <component id="9d304" class="javax.swing.JButton" binding="showOnlyDownstreamButton" default-binding="true">
@@ -240,7 +240,7 @@
                     </constraints>
                     <properties>
                       <enabled value="false"/>
-                      <text value="Show &amp;only downstream"/>
+                      <text value="S&amp;how downstream"/>
                     </properties>
                   </component>
                   <component id="a36f9" class="javax.swing.JButton" binding="showOnlyUpstreamDownstreamButton" default-binding="true">
@@ -249,9 +249,14 @@
                     </constraints>
                     <properties>
                       <enabled value="false"/>
-                      <text value="&amp;Show only upstream and downstream"/>
+                      <text value="&amp;Show up/down-stream"/>
                     </properties>
                   </component>
+                  <vspacer id="b893a">
+                    <constraints>
+                      <grid row="3" column="0" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                  </vspacer>
                 </children>
               </grid>
               <component id="3d471" class="javax.swing.JProgressBar" binding="loadingProgressBar">
@@ -266,37 +271,103 @@
                   <visible value="false"/>
                 </properties>
               </component>
-              <grid id="9117f" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+              <grid id="9117f" layout-manager="GridLayoutManager" row-count="3" column-count="2" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                 <margin top="0" left="0" bottom="0" right="0"/>
                 <constraints>
                   <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                 </constraints>
                 <properties/>
-                <border type="etched" title="Navigation">
+                <border type="etched" title="Graph layout">
                   <title-color color="-8355712"/>
                 </border>
                 <children>
-                  <component id="37569" class="javax.swing.JButton" binding="fitGraphToViewButton" default-binding="true">
-                    <constraints>
-                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
-                    </constraints>
-                    <properties>
-                      <enabled value="false"/>
-                      <text value="Fit &amp;graph to view"/>
-                    </properties>
-                  </component>
-                  <vspacer id="b1d01">
-                    <constraints>
-                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
-                    </constraints>
-                  </vspacer>
                   <component id="9af09" class="javax.swing.JButton" binding="fitGraphToBestRatioButton">
                     <constraints>
                       <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
                     </constraints>
                     <properties>
                       <enabled value="false"/>
-                      <text value="Fit graph &amp;to best ratio"/>
+                      <text value="Fit &amp;to best ratio"/>
+                    </properties>
+                  </component>
+                  <grid id="308c8" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="0" column="1" row-span="2" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties/>
+                    <border type="none" title="x grid size"/>
+                    <children>
+                      <component id="d190a" class="javax.swing.JButton" binding="increaseXGridButton">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <enabled value="false"/>
+                          <text value="In&amp;crease"/>
+                        </properties>
+                      </component>
+                      <component id="a6467" class="javax.swing.JButton" binding="decreaseXGridButton">
+                        <constraints>
+                          <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <enabled value="false"/>
+                          <text value="Decre&amp;ase"/>
+                        </properties>
+                      </component>
+                      <vspacer id="9a672">
+                        <constraints>
+                          <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                      </vspacer>
+                    </children>
+                  </grid>
+                  <grid id="87552" layout-manager="GridLayoutManager" row-count="3" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints>
+                      <grid row="2" column="1" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties/>
+                    <border type="none" title="y grid size"/>
+                    <children>
+                      <component id="5a4fa" class="javax.swing.JButton" binding="increaseYGridButton">
+                        <constraints>
+                          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <enabled value="false"/>
+                          <text value="I&amp;ncrease"/>
+                        </properties>
+                      </component>
+                      <component id="99114" class="javax.swing.JButton" binding="decreaseYGridButton">
+                        <constraints>
+                          <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                        <properties>
+                          <enabled value="false"/>
+                          <text value="D&amp;ecrase"/>
+                        </properties>
+                      </component>
+                      <vspacer id="6e38a">
+                        <constraints>
+                          <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
+                        </constraints>
+                      </vspacer>
+                    </children>
+                  </grid>
+                  <vspacer id="73bc">
+                    <constraints>
+                      <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                  </vspacer>
+                  <component id="37569" class="javax.swing.JButton" binding="fitGraphToViewButton" default-binding="true">
+                    <constraints>
+                      <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+                    </constraints>
+                    <properties>
+                      <enabled value="false"/>
+                      <text value="Fit t&amp;o viewport"/>
                     </properties>
                   </component>
                 </children>
