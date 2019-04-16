@@ -273,7 +273,8 @@ class Utils {
                                     .stream()
                                     .map(point -> (float) point.getY())
                                     .collect(Collectors.toSet());
-                            float padding = (float) getGridSize(blueprint).getY();
+                            // set padding to the average y grid size of the previous sub-graph (but minimum 0.1)
+                            float padding = Math.max(0.1f, (float) getGridSize(blueprint).getY());
                             return max(yPoints) - min(yPoints) + padding;
                         })
                 );
@@ -293,7 +294,7 @@ class Utils {
                 .stream()
                 .min(Comparator.comparing(Point2D::getX))
                 .map(Point2D::getY)
-                .orElse((double) 0.5f)
+                .orElse(0.0)
                 .floatValue();
         return IntStream.range(0, sortedBlueprints.size())
                 .mapToObj(index -> {
