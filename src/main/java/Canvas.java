@@ -248,6 +248,10 @@ class Canvas extends JPanel {
         repaint();
     }
 
+    int getNodesCount() {
+        return this.graph.getNodes().size();
+    }
+
     @NotNull
     private Point2D toCameraView(@NotNull Point2D point) {
         Dimension canvasSize = this.canvasPanel.getSize();

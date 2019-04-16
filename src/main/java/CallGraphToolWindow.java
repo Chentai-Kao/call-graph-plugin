@@ -31,6 +31,7 @@ public class CallGraphToolWindow {
     private JButton decreaseXGridButton;
     private JButton increaseYGridButton;
     private JButton decreaseYGridButton;
+    private JLabel statsLabel;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
@@ -174,6 +175,8 @@ public class CallGraphToolWindow {
         // focus on the 'graph tab
         this.mainTabbedPanel.getComponentAt(1).setEnabled(true);
         this.mainTabbedPanel.setSelectedIndex(1);
+        // stats label
+        this.statsLabel.setText("(stats)");
         // build-type label
         String buildTypeText = canvasConfig.getBuildType().getLabel();
         switch (canvasConfig.getBuildType()) {
@@ -227,6 +230,8 @@ public class CallGraphToolWindow {
                 .setCallGraphToolWindow(this);
         this.canvasPanel.add(this.canvas);
         this.canvasPanel.updateUI();
+        // stats label
+        this.statsLabel.setText(String.format("Total %d methods", this.canvas.getNodesCount()));
         // hide progress bar
         this.loadingProgressBar.setVisible(false);
         // enable some checkboxes and buttons
