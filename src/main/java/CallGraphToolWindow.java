@@ -25,6 +25,7 @@ public class CallGraphToolWindow {
     private JCheckBox viewPackageNameCheckBox;
     private JCheckBox viewFilePathCheckBox;
     private JButton fitGraphToViewButton;
+    private JButton fitGraphToBestRatioButton;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
@@ -40,6 +41,7 @@ public class CallGraphToolWindow {
         this.showOnlyDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.DOWNSTREAM));
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
         this.fitGraphToViewButton.addActionListener(e -> fitGraphToViewButtonHandler());
+        this.fitGraphToBestRatioButton.addActionListener(e -> fitGraphToBestRatioButtonHandler());
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -142,6 +144,12 @@ public class CallGraphToolWindow {
         }
     }
 
+    private void fitGraphToBestRatioButtonHandler() {
+        if (this.canvas != null) {
+            this.canvas.fitCanvasToBestRatio();
+        }
+    }
+
     private void setupUiBeforeRun(@NotNull CanvasConfig canvasConfig) {
         // focus on the 'graph tab
         this.mainTabbedPanel.getComponentAt(1).setEnabled(true);
@@ -173,9 +181,11 @@ public class CallGraphToolWindow {
             default:
                 break;
         }
-        // view 'package name' or 'file path' checkbox
+        // disable some checkboxes and buttons
         this.viewPackageNameCheckBox.setEnabled(false);
         this.viewFilePathCheckBox.setEnabled(false);
+        this.fitGraphToBestRatioButton.setEnabled(false);
+        this.fitGraphToViewButton.setEnabled(false);
         // upstream/downstream buttons
         this.showOnlyUpstreamButton.setEnabled(false);
         this.showOnlyDownstreamButton.setEnabled(false);
@@ -195,11 +205,13 @@ public class CallGraphToolWindow {
         this.canvasPanel.updateUI();
         // hide progress bar
         this.loadingProgressBar.setVisible(false);
-        // reset some checkboxes
+        // enable some checkboxes and buttons
         this.viewPackageNameCheckBox.setEnabled(true);
         this.viewPackageNameCheckBox.setSelected(true);
         this.viewFilePathCheckBox.setEnabled(true);
         this.viewFilePathCheckBox.setSelected(false);
+        this.fitGraphToBestRatioButton.setEnabled(true);
+        this.fitGraphToViewButton.setEnabled(true);
     }
 
     @NotNull

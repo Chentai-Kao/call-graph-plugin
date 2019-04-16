@@ -218,6 +218,19 @@ class Canvas extends JPanel {
         repaint();
     }
 
+    void fitCanvasToBestRatio() {
+        Set<Map<String, Point2D>> subGraphBlueprints = graph.getConnectedComponents()
+                .stream()
+                .map(graph -> graph.getNodes().stream().collect(Collectors.toMap(Node::getId, Node::getPoint)))
+                .map(Utils::normalizeBlueprintGridSize)
+                .collect(Collectors.toSet());
+        Map<String, Point2D> mergedBlueprint = Utils.mergeLayouts(new ArrayList<>(subGraphBlueprints));
+        Utils.applyLayoutBlueprintToGraph(mergedBlueprint, this.graph);
+        this.cameraOrigin = defaultCameraOrigin;
+        this.zoomRatio = defaultZoomRatio;
+        repaint();
+    }
+
     @NotNull
     private Point2D toCameraView(@NotNull Point2D point) {
         Dimension canvasSize = this.canvasPanel.getSize();
