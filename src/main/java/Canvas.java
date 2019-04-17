@@ -24,7 +24,6 @@ class Canvas extends JPanel {
     private float xZoomRatio = defaultZoomRatio;
     private float yZoomRatio = defaultZoomRatio;
     private final int nodeRadius = 5;
-    private final int nodeDiameter = 2 * nodeRadius;
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
     private final Color backgroundColor = new JBColor(new Color(0xFDFEFF), new Color(0x292B2D));
@@ -139,7 +138,7 @@ class Canvas extends JPanel {
                             )
                                     .filter(entry -> !entry.getKey().isEmpty())
                                     .collect(Collectors.toList());
-                    drawNodeLabels(graphics2D, node, labels);
+                    drawNodeLabels(graphics2D, node, labels, true);
                 });
     }
 
@@ -288,26 +287,68 @@ class Canvas extends JPanel {
             @NotNull Node node,
             @NotNull String label,
             @NotNull Color labelColor) {
-        drawNodeLabels(graphics2D, node, Collections.singletonList(new AbstractMap.SimpleEntry<>(label, labelColor)));
+        drawNodeLabels(
+                graphics2D, node, Collections.singletonList(new AbstractMap.SimpleEntry<>(label, labelColor)), false);
     }
 
     private void drawNodeLabels(
             @NotNull Graphics2D graphics2D,
             @NotNull Node node,
-            @NotNull List<AbstractMap.SimpleEntry<String, Color>> labels) {
+            @NotNull List<AbstractMap.SimpleEntry<String, Color>> labels,
+            boolean showBorder) {
+        if (labels.isEmpty()) {
+            return;
+        }
+        // fill background to overall bounding box
+        int padding = 1; // 1 px padding in the text bounding box
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
-        int labelBoundingBoxHeight = fontMetrics.getAscent() + fontMetrics.getDescent();
+        double singleLabelHeight = fontMetrics.getAscent() + fontMetrics.getDescent();
+        double boundingBoxWidth = labels.stream()
+                .mapToDouble(label -> fontMetrics.getStringBounds(label.getKey(), graphics2D).getWidth())
+                .max()
+                .orElse(0.0);
+        double boundingBoxHeight = labels.size() * singleLabelHeight;
         Point2D nodeCenter = toCameraView(node.getPoint());
-        int labelCount = labels.size();
-        IntStream.range(0, labelCount)
+        int nodeDiameter = 2 * nodeRadius;
+        Point2D boundingBoxLowerLeft = new Point2D.Float(
+                (float) nodeCenter.getX() + 2 * nodeDiameter - padding,
+                (float) (nodeCenter.getY() + 0.5f * singleLabelHeight + padding)
+        );
+        Point2D boundingBoxUpperLeft = new Point2D.Float(
+                (float) boundingBoxLowerLeft.getX() - padding,
+                (float) (boundingBoxLowerLeft.getY() - boundingBoxHeight - padding)
+        );
+        Point2D boundingBoxUpperRight = new Point2D.Float(
+                (float) (boundingBoxUpperLeft.getX() + boundingBoxWidth + padding),
+                (float) boundingBoxUpperLeft.getY() - padding
+        );
+        Point2D boundingBoxLowerRight = new Point2D.Float(
+                (float) boundingBoxUpperRight.getX() + padding,
+                (float) boundingBoxLowerLeft.getY() + padding
+        );
+        graphics2D.setColor(this.backgroundColor);
+        graphics2D.fillRect(
+                (int) boundingBoxUpperLeft.getX(),
+                (int) boundingBoxUpperLeft.getY(),
+                (int) boundingBoxWidth,
+                (int) boundingBoxHeight
+        );
+        // draw border
+        if (showBorder) {
+            drawLine(graphics2D, boundingBoxLowerLeft, boundingBoxUpperLeft, this.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxUpperLeft, boundingBoxUpperRight, this.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxUpperRight, boundingBoxLowerRight, this.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxLowerRight, boundingBoxLowerLeft, this.unHighlightedColor);
+        }
+        // draw text
+        IntStream.range(0, labels.size())
                 .forEach(index -> {
-                    String text = labels.get(index).getKey();
-                    Color color = labels.get(index).getValue();
                     Point2D labelCenterLeft = new Point2D.Float(
-                            (float) (nodeCenter.getX() + 2 * this.nodeDiameter),
-                            (float) (nodeCenter.getY() - index * labelBoundingBoxHeight)
+                            (float) boundingBoxLowerLeft.getX() + padding,
+                            (float) (nodeCenter.getY() - index * singleLabelHeight)
                     );
-                    drawText(graphics2D, labelCenterLeft, text, color);
+                    AbstractMap.SimpleEntry<String, Color> label = labels.get(index);
+                    drawText(graphics2D, labelCenterLeft, label.getKey(), label.getValue());
                 });
     }
 
@@ -347,18 +388,8 @@ class Canvas extends JPanel {
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         Point2D textLowerLeft = new Point2D.Float(
                 (int) textCenterLeft.getX(),
-                (int) (textCenterLeft.getY() + 0.5 * fontMetrics.getAscent() - 0.5 * fontMetrics.getDescent())
+                (int) (textCenterLeft.getY() + 0.5 * (fontMetrics.getAscent() - fontMetrics.getDescent()))
         );
-        // draw text background
-        Rectangle2D textBoundingBox = fontMetrics.getStringBounds(text, graphics2D);
-        graphics2D.setColor(this.backgroundColor);
-        graphics2D.fillRect(
-                (int) textLowerLeft.getX(),
-                (int) textLowerLeft.getY() - fontMetrics.getAscent(),
-                (int) textBoundingBox.getWidth(),
-                (int) textBoundingBox.getHeight()
-        );
-        // draw text
         graphics2D.setColor(textColor);
         graphics2D.drawString(text, (float) textLowerLeft.getX(), (float) textLowerLeft.getY());
     }
