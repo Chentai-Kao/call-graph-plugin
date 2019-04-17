@@ -187,20 +187,6 @@ class Canvas extends JPanel {
         return this.cameraOrigin;
     }
 
-    @SuppressWarnings("UnusedReturnValue")
-    @NotNull
-    Canvas changeXZoomRatio(float zoomFactor) {
-        this.xZoomRatio *= zoomFactor;
-        return this;
-    }
-
-    @SuppressWarnings("UnusedReturnValue")
-    @NotNull
-    Canvas changeYZoomRatio(float zoomFactor) {
-        this.yZoomRatio *= zoomFactor;
-        return this;
-    }
-
     void zoomAtPoint(@NotNull Point2D point, float xZoomFactor, float yZoomFactor) {
         this.cameraOrigin = new Point2D.Float(
                 (float) (xZoomFactor * this.cameraOrigin.getX() + (xZoomFactor - 1) * point.getX()),
