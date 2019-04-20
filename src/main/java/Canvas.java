@@ -286,7 +286,7 @@ class Canvas extends JPanel {
             return;
         }
         // fill background to overall bounding box
-        int padding = 1; // 1 px padding in the text bounding box
+        int padding = 2; // 1 px padding in the text bounding box
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         double singleLabelHeight = fontMetrics.getAscent() + fontMetrics.getDescent();
         double boundingBoxWidth = labels.stream()
@@ -301,23 +301,23 @@ class Canvas extends JPanel {
                 (float) (nodeCenter.getY() + 0.5f * singleLabelHeight + padding)
         );
         Point2D boundingBoxUpperLeft = new Point2D.Float(
-                (float) boundingBoxLowerLeft.getX() - padding,
-                (float) (boundingBoxLowerLeft.getY() - boundingBoxHeight - padding)
+                (float) boundingBoxLowerLeft.getX(),
+                (float) (boundingBoxLowerLeft.getY() - 2 * padding - boundingBoxHeight)
         );
         Point2D boundingBoxUpperRight = new Point2D.Float(
-                (float) (boundingBoxUpperLeft.getX() + boundingBoxWidth + padding),
-                (float) boundingBoxUpperLeft.getY() - padding
+                (float) (boundingBoxUpperLeft.getX() + 2 * padding + boundingBoxWidth),
+                (float) boundingBoxUpperLeft.getY()
         );
         Point2D boundingBoxLowerRight = new Point2D.Float(
-                (float) boundingBoxUpperRight.getX() + padding,
-                (float) boundingBoxLowerLeft.getY() + padding
+                (float) boundingBoxUpperRight.getX(),
+                (float) boundingBoxLowerLeft.getY()
         );
         graphics2D.setColor(this.backgroundColor);
         graphics2D.fillRect(
                 (int) boundingBoxUpperLeft.getX(),
                 (int) boundingBoxUpperLeft.getY(),
-                (int) boundingBoxWidth,
-                (int) boundingBoxHeight
+                (int) (boundingBoxUpperRight.getX() - boundingBoxUpperLeft.getX()),
+                (int) (boundingBoxLowerLeft.getY() - boundingBoxUpperLeft.getY())
         );
         // draw border
         if (showBorder) {
