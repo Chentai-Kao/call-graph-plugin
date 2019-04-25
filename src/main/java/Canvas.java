@@ -210,7 +210,7 @@ class Canvas extends JPanel {
     void fitCanvasToView() {
         Map<String, Point2D> blueprint = this.graph.getNodes()
                 .stream()
-                .collect(Collectors.toMap(Node::getId, Node::getPoint));
+                .collect(Collectors.toMap(Node::getId, Node::getRawLayoutPoint));
         Map<String, Point2D> bestFitBlueprint = Utils.fitLayoutToViewport(blueprint);
         Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph);
         this.cameraOrigin = defaultCameraOrigin;
@@ -220,13 +220,8 @@ class Canvas extends JPanel {
     }
 
     void fitCanvasToBestRatio() {
-        Set<Map<String, Point2D>> subGraphBlueprints = graph.getConnectedComponents()
-                .stream()
-                .map(graph -> graph.getNodes().stream().collect(Collectors.toMap(Node::getId, Node::getPoint)))
-                .map(Utils::normalizeBlueprintGridSize)
-                .collect(Collectors.toSet());
-        Map<String, Point2D> mergedBlueprint = Utils.mergeLayouts(new ArrayList<>(subGraphBlueprints));
-        Utils.applyLayoutBlueprintToGraph(mergedBlueprint, this.graph);
+        // set every node coordinate to its original raw layout by GraphViz
+        this.graph.getNodes().forEach(point -> point.setPoint(point.getRawLayoutPoint()));
         this.cameraOrigin = defaultCameraOrigin;
         this.xZoomRatio = defaultZoomRatio;
         this.yZoomRatio = defaultZoomRatio;

@@ -12,6 +12,7 @@ class Node {
     private final Map<String, Edge> outEdges = new HashMap<>();
     private final Map<String, Edge> inEdges = new HashMap<>();
     private Point2D point;
+    private Point2D rawLayoutPoint;
 
     Node(@NotNull String nodeId, @NotNull PsiMethod method) {
         this.id = nodeId;
@@ -28,6 +29,18 @@ class Node {
     @NotNull
     Point2D getPoint() {
         return this.point;
+    }
+
+    @SuppressWarnings("UnusedReturnValue")
+    @NotNull
+    Node setRawLayoutPoint(@NotNull Point2D rawLayoutPoint) {
+        this.rawLayoutPoint = rawLayoutPoint;
+        return this;
+    }
+
+    @NotNull
+    Point2D getRawLayoutPoint() {
+        return this.rawLayoutPoint;
     }
 
     void addInEdge(@NotNull Edge edge) {

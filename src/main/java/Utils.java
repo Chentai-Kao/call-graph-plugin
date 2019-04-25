@@ -38,9 +38,12 @@ import java.util.stream.Stream;
 
 import static guru.nidi.graphviz.model.Factory.mutGraph;
 import static guru.nidi.graphviz.model.Factory.mutNode;
-import static java.util.Collections.*;
+import static java.util.Collections.max;
+import static java.util.Collections.min;
 
 class Utils {
+    private static final float normalizedGridSize = 0.1f;
+
     @Nullable
     static Project getActiveProject() {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
@@ -148,7 +151,8 @@ class Utils {
                 .collect(Collectors.toSet());
 
         // merge all connected components to a single graph, then adjust node coordinates so they fit in the view
-        Map<String, Point2D> mergedBlueprint = Utils.mergeLayouts(new ArrayList<>(subGraphBlueprints));
+        Map<String, Point2D> mergedBlueprint = Utils.mergeNormalizedLayouts(new ArrayList<>(subGraphBlueprints));
+        applyRawLayoutBlueprintToGraph(mergedBlueprint, graph);
         applyLayoutBlueprintToGraph(mergedBlueprint, graph);
     }
 
@@ -241,13 +245,17 @@ class Utils {
                 ));
     }
 
+    private static void applyRawLayoutBlueprintToGraph(@NotNull Map<String, Point2D> blueprint, @NotNull Graph graph) {
+        blueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setRawLayoutPoint(point));
+    }
+
     @NotNull
-    static Map<String, Point2D> normalizeBlueprintGridSize(@NotNull Map<String, Point2D> blueprint) {
+    private static Map<String, Point2D> normalizeBlueprintGridSize(@NotNull Map<String, Point2D> blueprint) {
         if (blueprint.size() < 2) {
             return blueprint;
         }
         Point2D gridSize = getGridSize(blueprint);
-        Point2D desiredGridSize = new Point2D.Float(0.1f, 0.1f);
+        Point2D desiredGridSize = new Point2D.Float(normalizedGridSize, normalizedGridSize);
         float xFactor = gridSize.getX() == 0 ? 1.0f : (float) (desiredGridSize.getX() / gridSize.getX());
         float yFactor = gridSize.getY() == 0 ? 1.0f : (float) (desiredGridSize.getY() / gridSize.getY());
         return blueprint.entrySet()
@@ -261,7 +269,7 @@ class Utils {
     }
 
     @NotNull
-    static Map<String, Point2D> mergeLayouts(@NotNull List<Map<String, Point2D>> blueprints) {
+    private static Map<String, Point2D> mergeNormalizedLayouts(@NotNull List<Map<String, Point2D>> blueprints) {
         if (blueprints.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -274,8 +282,7 @@ class Utils {
                                     .map(point -> (float) point.getY())
                                     .collect(Collectors.toSet());
                             // set padding to the average y grid size of the previous sub-graph (but minimum 0.1)
-                            float padding = Math.max(0.1f, (float) getGridSize(blueprint).getY());
-                            return max(yPoints) - min(yPoints) + padding;
+                            return max(yPoints) - min(yPoints) + normalizedGridSize;
                         })
                 );
         List<Map<String, Point2D>> sortedBlueprints = blueprintHeights.entrySet()
@@ -456,16 +463,7 @@ class Utils {
     }
 
     private static float getAverageElementDifference(@NotNull Set<Long> elements) {
-        if (elements.isEmpty()) {
-            return 0;
-        }
-        List<Long> sortedValues = elements.stream()
-                .sorted()
-                .collect(Collectors.toList());
-        int totalDifference = IntStream.range(0, sortedValues.size() - 1)
-                .map(index -> (int) (sortedValues.get(index + 1) - sortedValues.get(index)))
-                .sum();
-        return (float) totalDifference / elements.size();
+        return elements.size() < 2 ? 0 : (max(elements) - min(elements)) / (float) (elements.size() - 1);
     }
 
     @NotNull
