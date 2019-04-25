@@ -1,5 +1,5 @@
 <!-- `url` specifies the URL of the plugin homepage (can be opened from "Plugins" settings dialog) -->
-<idea-plugin url="https://plugins.jetbrains.com/plugin/12300-call-graph">
+<idea-plugin url="https://plugins.jetbrains.com/plugin/12304-call-graph">
     <!-- Plugin name -->
     <name>Call Graph</name>
 
