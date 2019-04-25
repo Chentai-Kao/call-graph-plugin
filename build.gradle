@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.jetbrains'
-version '0.1.2' // plugin version, update me!
+version '0.1.0' // plugin version, update me!
 
 sourceCompatibility = 1.8
 
@@ -27,9 +27,3 @@ intellij {
     pluginName 'call-graph'
     intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
 }
-
-//patchPluginXml {
-//    changeNotes """
-//      Add change notes here.<br>
-//      <em>most HTML tags may be used</em>"""
-//}
