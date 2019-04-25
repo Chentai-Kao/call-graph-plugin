@@ -3,7 +3,7 @@
     <name>Call Graph</name>
     <vendor email="chentai.kao@gmail.com" url="https://chent.ai">Chentai</vendor>
 
-    <description>A tool to visualize class/function/variable level dependency graph.</description>
+    <description>A tool to visualize function call graph.</description>
 
     <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
          on how to target different products -->
