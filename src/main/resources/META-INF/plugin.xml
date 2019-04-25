@@ -1,12 +1,24 @@
 <idea-plugin>
     <id>com.jetbrains.call-graph-plugin</id>
     <name>Call Graph</name>
-    <vendor email="chentai.kao@gmail.com" url="https://chent.ai">Chentai</vendor>
+    <vendor email="chentai.kao@gmail.com" url="https://chent.ai">Chentai Kao</vendor>
 
-    <description>A tool to visualize function call graph.</description>
+    <description>
+        A plug-in to visualize function call graph of any codebase for IDEs based on the IntelliJ platform.
+
+        The goal is to make codebase extremely easy to understand, necessary for code navigation and debugging.
+
+        Call Graph supports visualizing function calls within the entire project, a single module, or specific folder.
+        It supports various graph navigation such as pan, zoom in/out, and is able to visualize all upstream
+        and downstream calls of a single function.
+
+        Currently it supports Java only. Other language support will come soon.
+    </description>
 
     <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
          on how to target different products -->
+    <idea-version since-build="162"/>
+
     <!-- uncomment to enable plugin in all products -->
     <depends>com.intellij.modules.lang</depends>
 
