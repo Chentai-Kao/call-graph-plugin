@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.jetbrains'
-version '0.1.0' // plugin version, update me!
+version '0.1.1' // plugin version, update me!
 
 sourceCompatibility = 1.8
 
