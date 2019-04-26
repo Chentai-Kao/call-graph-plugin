@@ -4,17 +4,19 @@ import org.jetbrains.annotations.Nullable;
 
 class CanvasConfig {
     public enum BuildType {
-        WHOLE_PROJECT_WITH_TEST_LIMITED("Whole project (test files included), limited up/down-stream scope"),
-        WHOLE_PROJECT_WITHOUT_TEST_LIMITED("Whole project (test files excluded), limited up/down-stream scope"),
-        MODULE_LIMITED("Module, limited up/down-stream scope"),
-        DIRECTORY_LIMITED("Directory, limited up/down-stream scope"),
+        WHOLE_PROJECT_WITH_TEST_LIMITED(
+                "Whole project (test files included), limited upstream/downstream scope"),
+        WHOLE_PROJECT_WITHOUT_TEST_LIMITED(
+                "Whole project (test files excluded), limited upstream/downstream scope"),
+        MODULE_LIMITED("Module, limited upstream/downstream scope"),
+        DIRECTORY_LIMITED("Directory, limited upstream/downstream scope"),
         WHOLE_PROJECT_WITH_TEST("Whole project (test files included)"),
         WHOLE_PROJECT_WITHOUT_TEST("Whole project (test files excluded)"),
         MODULE("Module"),
         DIRECTORY("Directory"),
-        UPSTREAM("Only upstream"),
-        DOWNSTREAM("Only downstream"),
-        UPSTREAM_DOWNSTREAM("Only upstream & downstream");
+        UPSTREAM("Upstream"),
+        DOWNSTREAM("Downstream"),
+        UPSTREAM_DOWNSTREAM("Upstream & downstream");
 
         private final String label;
 

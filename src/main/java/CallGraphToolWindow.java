@@ -176,7 +176,7 @@ public class CallGraphToolWindow {
         this.mainTabbedPanel.getComponentAt(1).setEnabled(true);
         this.mainTabbedPanel.setSelectedIndex(1);
         // stats label
-        this.statsLabel.setText("(stats)");
+        this.statsLabel.setText("...");
         // build-type label
         String buildTypeText = canvasConfig.getBuildType().getLabel();
         switch (canvasConfig.getBuildType()) {
@@ -189,18 +189,18 @@ public class CallGraphToolWindow {
             case MODULE_LIMITED:
             case MODULE:
                 String moduleName = (String) this.moduleScopeComboBox.getSelectedItem();
-                this.buildTypeLabel.setText(String.format("%s [%s]", buildTypeText, moduleName));
+                this.buildTypeLabel.setText(String.format("<html>Module <b>%s</b></html>", moduleName));
                 break;
             case DIRECTORY_LIMITED:
             case DIRECTORY:
                 String path = this.directoryScopeTextField.getText();
-                this.buildTypeLabel.setText(String.format("%s [%s]", buildTypeText, path));
+                this.buildTypeLabel.setText(String.format("<html>Directory <b>%s</b></html>", path));
                 break;
             case UPSTREAM:
             case DOWNSTREAM:
             case UPSTREAM_DOWNSTREAM:
-                this.buildTypeLabel.setText(
-                        String.format("%s of function [%s]", buildTypeText, this.clickedNode.getMethod().getName()));
+                this.buildTypeLabel.setText(String.format("<html>%s of function <b>%s</b></html>",
+                        buildTypeText, this.clickedNode.getMethod().getName()));
             default:
                 break;
         }
@@ -231,7 +231,7 @@ public class CallGraphToolWindow {
         this.canvasPanel.add(this.canvas);
         this.canvasPanel.updateUI();
         // stats label
-        this.statsLabel.setText(String.format("Total %d methods", this.canvas.getNodesCount()));
+        this.statsLabel.setText(String.format("%d methods", this.canvas.getNodesCount()));
         // hide progress bar
         this.loadingProgressBar.setVisible(false);
         // enable some checkboxes and buttons
