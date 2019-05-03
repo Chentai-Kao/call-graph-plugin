@@ -79,18 +79,13 @@ public class CallGraphToolWindow {
         this.loadingProgressBar.setValue(0);
     }
 
-    void incrementIndeterminateProgressBar() {
+    void incrementProgressBar() {
         int newValue = this.loadingProgressBar.getValue() + 1;
         this.loadingProgressBar.setValue(newValue);
-        this.loadingProgressBar.setString(String.format("%d processed", newValue));
-    }
-
-    void incrementDeterminateProgressBar() {
-        int newValue = this.loadingProgressBar.getValue() + 1;
-        this.loadingProgressBar.setValue(newValue);
-        this.loadingProgressBar.setString(
-                String.format("%d processed (total %d)", newValue, this.loadingProgressBar.getMaximum())
-        );
+        String text = this.loadingProgressBar.isIndeterminate() ?
+                String.format("%d functions processed", newValue) :
+                String.format("%d functions processed (total %d)", newValue, this.loadingProgressBar.getMaximum());
+        this.loadingProgressBar.setString(text);
     }
 
     boolean isRenderFunctionPackageName() {

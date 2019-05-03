@@ -70,7 +70,7 @@ class Utils {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementDeterminateProgressBar();
+                            canvasConfig.getCallGraphToolWindow().incrementProgressBar();
                             SearchScope searchScope = getSearchScope(canvasConfig, method);
                             return ReferencesSearch
                                     .search(method, searchScope)
@@ -349,7 +349,7 @@ class Utils {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementIndeterminateProgressBar();
+                            canvasConfig.getCallGraphToolWindow().incrementProgressBar();
                             SearchScope searchScope =
                                     GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
                             Collection<PsiReference> references =
@@ -412,7 +412,7 @@ class Utils {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementIndeterminateProgressBar();
+                            canvasConfig.getCallGraphToolWindow().incrementProgressBar();
                             Collection<PsiIdentifier> identifiers =
                                     PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class);
                             return identifiers.stream()
