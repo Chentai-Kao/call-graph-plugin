@@ -89,7 +89,7 @@ public class CallGraphToolWindow {
         int newValue = this.loadingProgressBar.getValue() + 1;
         this.loadingProgressBar.setValue(newValue);
         this.loadingProgressBar.setString(
-                String.format("%d / %d processed", newValue, this.loadingProgressBar.getMaximum())
+                String.format("%d processed (total %d)", newValue, this.loadingProgressBar.getMaximum())
         );
     }
 
