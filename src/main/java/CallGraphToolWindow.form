@@ -205,7 +205,7 @@
                     </constraints>
                     <properties>
                       <icon value="icons/build.png"/>
-                      <text value="Build from:"/>
+                      <text value="&lt;html&gt;&lt;b&gt;Build from&lt;/b&gt;&lt;/html&gt;"/>
                     </properties>
                   </component>
                   <component id="9e721" class="javax.swing.JLabel">
@@ -214,7 +214,7 @@
                     </constraints>
                     <properties>
                       <icon value="icons/statistics.png"/>
-                      <text value="Statistics:"/>
+                      <text value="&lt;html&gt;&lt;b&gt;Statistics&lt;/b&gt;&lt;/html&gt;"/>
                     </properties>
                   </component>
                   <component id="a623a" class="javax.swing.JLabel">
@@ -223,7 +223,7 @@
                     </constraints>
                     <properties>
                       <icon value="icons/navigation.png"/>
-                      <text value="Navigation:"/>
+                      <text value="&lt;html&gt;&lt;b&gt;Navigation&lt;/b&gt;&lt;/html&gt;"/>
                     </properties>
                   </component>
                 </children>
