@@ -97,7 +97,7 @@ class Utils {
                 buildType == CanvasConfig.BuildType.UPSTREAM ||
                 buildType == CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM;
         Map<PsiMethod, Set<PsiMethod>> upstreamDependency = needsUpstream ?
-                getUpstreamDependency(methods, new HashSet<>()) : Collections.emptyMap();
+                getUpstreamDependency(canvasConfig, methods, new HashSet<>()) : Collections.emptyMap();
         // downstream mapping of { callee => callers }
         boolean needsDownstream = buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST ||
                 buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST ||
@@ -106,7 +106,7 @@ class Utils {
                 buildType == CanvasConfig.BuildType.DOWNSTREAM ||
                 buildType == CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM;
         Map<PsiMethod, Set<PsiMethod>> downstreamDependency = needsDownstream ?
-                getDownstreamDependency(methods) : Collections.emptyMap();
+                getDownstreamDependency(canvasConfig, methods) : Collections.emptyMap();
         return Stream
                 .concat(upstreamDependency.entrySet().stream(), downstreamDependency.entrySet().stream())
                 .collect(Collectors.toMap(
@@ -339,6 +339,7 @@ class Utils {
 
     @NotNull
     private static Map<PsiMethod, Set<PsiMethod>> getUpstreamDependency(
+            @NotNull CanvasConfig canvasConfig,
             @NotNull Set<PsiMethod> methods,
             @NotNull Set<PsiMethod> seenMethods) {
         if (methods.isEmpty()) {
@@ -348,6 +349,7 @@ class Utils {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
+                            canvasConfig.getCallGraphToolWindow().incrementIndeterminateProgressBar();
                             SearchScope searchScope =
                                     GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
                             Collection<PsiReference> references =
@@ -366,7 +368,7 @@ class Utils {
                 .flatMap(Collection::stream)
                 .filter(parent -> !seenMethods.contains(parent))
                 .collect(Collectors.toSet());
-        Map<PsiMethod, Set<PsiMethod>> indirectUpstream = getUpstreamDependency(parents, seenMethods);
+        Map<PsiMethod, Set<PsiMethod>> indirectUpstream = getUpstreamDependency(canvasConfig, parents, seenMethods);
         return Stream.concat(directUpstream.entrySet().stream(), indirectUpstream.entrySet().stream())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -376,10 +378,12 @@ class Utils {
     }
 
     @NotNull
-    private static Map<PsiMethod, Set<PsiMethod>> getDownstreamDependency(@NotNull Set<PsiMethod> methods) {
+    private static Map<PsiMethod, Set<PsiMethod>> getDownstreamDependency(
+            @NotNull CanvasConfig canvasConfig,
+            @NotNull Set<PsiMethod> methods) {
         // downstream mapping of { caller => callees }
         Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap =
-                getDownstreamMethodCalleesMap(methods, new HashSet<>());
+                getDownstreamMethodCalleesMap(canvasConfig, methods, new HashSet<>());
         // reverse the key value relation of downstream mapping from { caller => callees } to { callee => callers }
         return downstreamMethodCalleesMap.entrySet()
                 .stream()
@@ -398,6 +402,7 @@ class Utils {
 
     @NotNull
     private static Map<PsiMethod, Set<PsiMethod>> getDownstreamMethodCalleesMap(
+            @NotNull CanvasConfig canvasConfig,
             @NotNull Set<PsiMethod> methods,
             @NotNull Set<PsiMethod> seenMethods) {
         if (methods.isEmpty()) {
@@ -407,6 +412,7 @@ class Utils {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
+                            canvasConfig.getCallGraphToolWindow().incrementIndeterminateProgressBar();
                             Collection<PsiIdentifier> identifiers =
                                     PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class);
                             return identifiers.stream()
@@ -425,7 +431,8 @@ class Utils {
                 .flatMap(Collection::stream)
                 .filter(child -> !seenMethods.contains(child))
                 .collect(Collectors.toSet());
-        Map<PsiMethod, Set<PsiMethod>> indirectDownstream = getDownstreamMethodCalleesMap(children, seenMethods);
+        Map<PsiMethod, Set<PsiMethod>> indirectDownstream =
+                getDownstreamMethodCalleesMap(canvasConfig, children, seenMethods);
         return Stream.concat(directDownstream.entrySet().stream(), indirectDownstream.entrySet().stream())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
