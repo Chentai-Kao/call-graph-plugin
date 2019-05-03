@@ -1,3 +1,4 @@
+import com.intellij.ide.util.EditorHelper;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +33,7 @@ public class CallGraphToolWindow {
     private JButton increaseYGridButton;
     private JButton decreaseYGridButton;
     private JLabel statsLabel;
+    private JButton viewSourceCodeButton;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
@@ -46,6 +48,7 @@ public class CallGraphToolWindow {
         this.showOnlyUpstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM));
         this.showOnlyDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.DOWNSTREAM));
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
+        this.viewSourceCodeButton.addActionListener(e -> viewSourceCodeHandler());
         this.fitGraphToViewButton.addActionListener(e -> fitGraphToViewButtonHandler());
         this.fitGraphToBestRatioButton.addActionListener(e -> fitGraphToBestRatioButtonHandler());
         this.increaseXGridButton.addActionListener(e -> gridSizeButtonHandler(true, true));
@@ -66,6 +69,7 @@ public class CallGraphToolWindow {
         this.showOnlyUpstreamButton.setEnabled(isEnabled);
         this.showOnlyDownstreamButton.setEnabled(isEnabled);
         this.showOnlyUpstreamDownstreamButton.setEnabled(isEnabled);
+        this.viewSourceCodeButton.setEnabled(isEnabled);
     }
 
     void resetIndeterminateProgressBar() {
@@ -173,6 +177,10 @@ public class CallGraphToolWindow {
         this.canvas.zoomAtPoint(zoomCenter, xZoomFactor, yZoomFactor);
     }
 
+    private void viewSourceCodeHandler() {
+        EditorHelper.openInEditor(this.clickedNode.getMethod());
+    }
+
     private void setupUiBeforeRun(@NotNull CanvasConfig canvasConfig) {
         // focus on the 'graph tab
         this.mainTabbedPanel.getComponentAt(1).setEnabled(true);
@@ -215,6 +223,7 @@ public class CallGraphToolWindow {
         this.decreaseXGridButton.setEnabled(false);
         this.increaseYGridButton.setEnabled(false);
         this.decreaseYGridButton.setEnabled(false);
+        this.viewSourceCodeButton.setEnabled(false);
         // upstream/downstream buttons
         this.showOnlyUpstreamButton.setEnabled(false);
         this.showOnlyDownstreamButton.setEnabled(false);
