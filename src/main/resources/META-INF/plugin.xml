@@ -107,15 +107,69 @@
     </module-components> -->
 
     <!-- Actions -->
-    <!-- <actions>
-        <action
-             id="VssIntegration.GarbageCollection"
-             class="com.foo.impl.CollectGarbage"
-             text="Collect _Garbage"
-             description="Run garbage collector">
-            <keyboard-shortcut first-keystroke="control alt G" second-keystroke="C" keymap="$default"/>
-        </action>
-    </actions> -->
+    <actions>
+        <!-- The <group> element defines an action group.
+             <action>, <group> and <separator> elements defined within it are automatically included in the group.
+             - "id" (required) specifies an unique identifier for the action.
+             - "class" (optional) specifies the full-qualified name of the class implementing the group.
+               If not specified, com.intellij.openapi.actionSystem.DefaultActionGroup is used.
+             - "text" (optional) specifies the text of the group (text for the menu item showing the submenu).
+             - "description" (optional) specifies the text displayed in the status bar when the group is focused.
+             - "icon" (optional) specifies the icon which is displayed on the toolbar button or next to the group.
+             - "popup" (optional) specifies how the group is presented in the menu. If a group has popup="true",
+               actions in it are placed in a submenu; for popup="false", actions are displayed as a section of
+               the same menu delimited by separators. -->
+        <!--suppress PluginXmlValidity -->
+        <group id="CallGraphActionGroup"
+               text="Call Graph"
+               description="Actions of the Call Graph plugin"
+               icon="icons/icon.svg"
+               popup="false">
+            <!-- The <action> element defines an action to register.
+                 - "id" (required) specifies an unique identifier for the action.
+                 - "class" (required) specifies the full-qualified name of the class implementing the action.
+                 - "text" (required) specifies the text (tooltip for toolbar button or text for menu item).
+                 - "use-shortcut-of" (optional) specifies the ID of the action whose keyboard shortcut this action uses.
+                 - "description" (optional) specifies the text displayed in the status bar when the action is focused.
+                 - "icon" (optional) specifies the icon displayed on the toolbar button or next to the menu item. -->
+            <!--suppress PluginXmlValidity -->
+            <action id="CallGraph.ViewUpstreamDownstreamCallGraphFromSource"
+                    class="ViewUpstreamDownstreamAction"
+                    text="View upstream/downstream call graph"
+                    description="View the upstream/downstream call graph of this function"
+                    icon="icons/icon.svg">
+            </action>
+            <!--suppress PluginXmlValidity -->
+            <action id="CallGraph.ViewUpstreamCallGraphFromSource"
+                    class="ViewUpstreamAction"
+                    text="View upstream call graph"
+                    description="View the upstream call graph of this function"
+                    icon="icons/icon.svg">
+            </action>
+            <!--suppress PluginXmlValidity -->
+            <action id="CallGraph.ViewDownstreamCallGraphFromSource"
+                    class="ViewDownstreamAction"
+                    text="View downstream call graph"
+                    description="View the downstream call graph of this function"
+                    icon="icons/icon.svg">
+            </action>
+            <!-- The <add-to-group> node specifies that the action should be added to an existing group.
+                 An action can be added to several groups.
+                 - "group-id" (required) specifies the ID of the group to which the action is added. The group must be
+                   implemented by an instance of the DefaultActionGroup class.
+                 - "anchor" (required) specifies the position of the action in the group relative to other actions.
+                   It can have the values "first", "last", "before" and "after".
+                 - "relative-to-action" (required if the anchor is set to "before" and "after") specifies the action
+                   before or after which the current action is inserted. -->
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <!-- The <separator> element defines a separator between actions. -->
+            <!-- <separator/> -->
+            <!-- <group id="AnotherNestedGroup"/> -->
+            <!-- The <reference> element allows to add an existing action to the group.
+                 - "ref" (required) specifies the ID of the action to add. -->
+            <!-- <reference ref="EditorCopy"/> -->
+        </group>
+    </actions>
 
     <!-- Extension points defined by the plugin. Extension points are registered by a plugin so that other plugins
          can provide this plugin with certain data. The "beanClass" attribute specifies the class the implementations
@@ -137,6 +191,9 @@
                 icon="/icons/icon.svg"
                 anchor="right"
                 factoryClass="CallGraphToolWindowFactory"/>
+        <!-- Project service holds a reference to the tool window, which is accessible by an action (editor menu) -->
+        <projectService serviceInterface="CallGraphToolWindowProjectService"
+                        serviceImplementation="CallGraphToolWindowProjectService"/>
     </extensions>
 
     <!-- <extensions defaultExtensionNs="com.intellij">

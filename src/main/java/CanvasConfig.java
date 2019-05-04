@@ -1,4 +1,5 @@
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,7 @@ class CanvasConfig {
     private String selectedModuleName;
     private String selectedDirectoryPath;
     private Project project;
-    private Node focusedNode;
+    private PsiMethod focusedMethod;
     private CallGraphToolWindow callGraphToolWindow;
 
     @NotNull
@@ -71,13 +72,13 @@ class CanvasConfig {
     }
 
     @NotNull
-    Node getFocusedNode() {
-        return focusedNode;
+    PsiMethod getFocusedMethod() {
+        return focusedMethod;
     }
 
     @NotNull
-    CanvasConfig setFocusedNode(@Nullable Node focusedNode) {
-        this.focusedNode = focusedNode;
+    CanvasConfig setFocusedMethod(@Nullable PsiMethod focusedMethod) {
+        this.focusedMethod = focusedMethod;
         return this;
     }
 

@@ -1,5 +1,6 @@
 import com.intellij.ide.util.EditorHelper;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +38,7 @@ public class CallGraphToolWindow {
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
-    private Node clickedNode;
+    private PsiMethod focusedMethod;
 
     public CallGraphToolWindow() {
         // click handlers for buttons
@@ -63,8 +64,14 @@ public class CallGraphToolWindow {
         return this.callGraphToolWindowContent;
     }
 
+    @NotNull
+    CallGraphToolWindow setFocusedMethod(@NotNull PsiMethod focusedMethod) {
+        this.focusedMethod = focusedMethod;
+        return this;
+    }
+
     void setClickedNode(@Nullable Node node) {
-        this.clickedNode = node;
+        this.focusedMethod = node == null ? null : node.getMethod();
         boolean isEnabled = node != null;
         this.showOnlyUpstreamButton.setEnabled(isEnabled);
         this.showOnlyDownstreamButton.setEnabled(isEnabled);
@@ -83,8 +90,8 @@ public class CallGraphToolWindow {
         this.loadingProgressBar.setValue(0);
     }
 
-    void incrementProgressBar() {
-        int newValue = this.loadingProgressBar.getValue() + 1;
+    void incrementProgressBar(int delta) {
+        int newValue = this.loadingProgressBar.getValue() + delta;
         this.loadingProgressBar.setValue(newValue);
         String text = this.loadingProgressBar.isIndeterminate() ?
                 String.format("%d functions processed", newValue) :
@@ -100,7 +107,7 @@ public class CallGraphToolWindow {
         return this.viewFilePathCheckBox.isSelected();
     }
 
-    private void run(@NotNull CanvasConfig.BuildType buildType) {
+    void run(@NotNull CanvasConfig.BuildType buildType) {
         Project project = Utils.getActiveProject();
         if (project != null) {
             Utils.runBackgroundTask(project, () -> {
@@ -111,7 +118,7 @@ public class CallGraphToolWindow {
                         .setBuildType(buildType)
                         .setSelectedModuleName(maybeModuleName == null ? "" : maybeModuleName)
                         .setSelectedDirectoryPath(this.directoryScopeTextField.getText())
-                        .setFocusedNode(this.clickedNode)
+                        .setFocusedMethod(this.focusedMethod)
                         .setCallGraphToolWindow(this);
                 // start building graph
                 setupUiBeforeRun(canvasConfig);
@@ -178,7 +185,7 @@ public class CallGraphToolWindow {
     }
 
     private void viewSourceCodeHandler() {
-        EditorHelper.openInEditor(this.clickedNode.getMethod());
+        EditorHelper.openInEditor(this.focusedMethod);
     }
 
     private void setupUiBeforeRun(@NotNull CanvasConfig canvasConfig) {
@@ -210,7 +217,7 @@ public class CallGraphToolWindow {
             case DOWNSTREAM:
             case UPSTREAM_DOWNSTREAM:
                 this.buildTypeLabel.setText(String.format("<html>%s of function <b>%s</b></html>",
-                        buildTypeText, this.clickedNode.getMethod().getName()));
+                        buildTypeText, this.focusedMethod.getName()));
             default:
                 break;
         }

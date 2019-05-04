@@ -1,4 +1,7 @@
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.module.impl.scopes.ModulesScope;
@@ -14,6 +17,7 @@ import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -70,7 +74,7 @@ class Utils {
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementProgressBar();
+                            canvasConfig.getCallGraphToolWindow().incrementProgressBar(1);
                             SearchScope searchScope = getSearchScope(canvasConfig, method);
                             return ReferencesSearch
                                     .search(method, searchScope)
@@ -345,11 +349,11 @@ class Utils {
         if (methods.isEmpty()) {
             return Collections.emptyMap();
         }
+        canvasConfig.getCallGraphToolWindow().incrementProgressBar(methods.size());
         Map<PsiMethod, Set<PsiMethod>> directUpstream = methods.stream()
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementProgressBar();
                             SearchScope searchScope =
                                     GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
                             Collection<PsiReference> references =
@@ -408,11 +412,11 @@ class Utils {
         if (methods.isEmpty()) {
             return Collections.emptyMap();
         }
+        canvasConfig.getCallGraphToolWindow().incrementProgressBar(methods.size());
         Map<PsiMethod, Set<PsiMethod>> directDownstream = methods.stream()
                 .collect(Collectors.toMap(
                         method -> method,
                         method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementProgressBar();
                             Collection<PsiIdentifier> identifiers =
                                     PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class);
                             return identifiers.stream()
@@ -581,5 +585,28 @@ class Utils {
                         parts -> parts[1], // node ID
                         parts -> new Point2D.Float(Float.parseFloat(parts[2]), Float.parseFloat(parts[3])) // (x, y)
                 ));
+    }
+
+    static void runCallGraphFromAction(
+            @NotNull AnActionEvent anActionEvent,
+            @NotNull CanvasConfig.BuildType buildType) {
+        Project project = anActionEvent.getProject();
+        PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT); // get the element under editor caret
+        if (project != null && psiElement instanceof PsiMethod) {
+            PsiMethod focusedMethod = (PsiMethod) psiElement;
+            ToolWindowManager.getInstance(project)
+                    .getToolWindow("Call Graph")
+                    .activate(() -> ServiceManager.getService(project, CallGraphToolWindowProjectService.class)
+                            .getCallGraphToolWindow()
+                            .setFocusedMethod(focusedMethod)
+                            .run(buildType));
+        }
+    }
+
+    static void setActionEnabledAndVisibleByContext(@NotNull AnActionEvent anActionEvent) {
+        Project project = anActionEvent.getProject();
+        PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT);
+        boolean isEnabledAndVisible = project != null && psiElement instanceof PsiMethod;
+        anActionEvent.getPresentation().setEnabledAndVisible(isEnabledAndVisible);
     }
 }

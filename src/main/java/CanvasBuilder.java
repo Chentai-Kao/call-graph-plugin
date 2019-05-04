@@ -59,7 +59,7 @@ class CanvasBuilder {
 
     @NotNull
     private Canvas buildSingleMethod(@NotNull CanvasConfig canvasConfig) {
-        Set<PsiMethod> seedMethods = Stream.of(canvasConfig.getFocusedNode().getMethod()).collect(Collectors.toSet());
+        Set<PsiMethod> seedMethods = Stream.of(canvasConfig.getFocusedMethod()).collect(Collectors.toSet());
         Map<PsiMethod, Set<PsiMethod>> methodCallersMap = Utils.getDependencyFromMethods(seedMethods, canvasConfig);
         return visualizeGraph(methodCallersMap);
     }

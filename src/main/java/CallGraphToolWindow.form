@@ -31,7 +31,7 @@
             <children>
               <component id="f01c6" class="javax.swing.JLabel">
                 <constraints>
-                  <grid row="0" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                  <grid row="0" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="1" use-parent-layout="false"/>
                 </constraints>
                 <properties>
                   <text value="&lt;html&gt;For any function call relation &lt;b&gt;upstream → function → downstream&lt;/b&gt; ...&lt;/html&gt;"/>
@@ -43,7 +43,9 @@
                   <grid row="1" column="0" row-span="1" col-span="2" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                 </constraints>
                 <properties/>
-                <border type="etched" title="&lt;html&gt;Search scope for &lt;b&gt;function&lt;/b&gt;&lt;/html&gt;"/>
+                <border type="etched" title="&lt;html&gt;Search scope for &lt;b&gt;function&lt;/b&gt;&lt;/html&gt;">
+                  <title-color color="-8355712"/>
+                </border>
                 <children>
                   <component id="3316e" class="javax.swing.JRadioButton" binding="projectScopeButton">
                     <constraints>
@@ -110,7 +112,9 @@
                   <grid row="2" column="0" row-span="1" col-span="2" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
                 </constraints>
                 <properties/>
-                <border type="etched" title="&lt;html&gt;Search scope for &lt;b&gt;upstream&lt;/b&gt; and &lt;b&gt;downstream&lt;/b&gt;&lt;/html&gt;"/>
+                <border type="etched" title="&lt;html&gt;Search scope for &lt;b&gt;upstream&lt;/b&gt; and &lt;b&gt;downstream&lt;/b&gt;&lt;/html&gt;">
+                  <title-color color="-8355712"/>
+                </border>
                 <children>
                   <component id="2ec3a" class="javax.swing.JCheckBox" binding="upstreamDownstreamScopeCheckbox">
                     <constraints>
