@@ -362,7 +362,7 @@
                       <enabled value="false"/>
                       <icon value="icons/view-source-code.png"/>
                       <text value=""/>
-                      <toolTipText value="View source code"/>
+                      <toolTipText value="View source code of selected function"/>
                     </properties>
                   </component>
                   <hspacer id="7c2e8">

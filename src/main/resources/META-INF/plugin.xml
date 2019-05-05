@@ -3,6 +3,9 @@
     <!-- Plugin name -->
     <name>Call Graph</name>
 
+    <!-- Plugin version -->
+    <version>0.1.4</version>
+
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
     <id>call-graph</id>
@@ -47,9 +50,6 @@
         <li>Various bug fixes</li>
       </ul>
     ]]></change-notes>
-
-    <!-- Plugin version (specified in build.gradle) -->
-    <!-- <version>0.1.0</version> -->
 
     <!-- The vendor of the plugin. The optional "url" attribute specifies the URL of the vendor homepage.
          The optional "email" attribute specifies the e-mail address of the vendor.-->
