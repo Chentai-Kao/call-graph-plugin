@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 class Canvas extends JPanel {
     private final Graph graph;
     private JPanel canvasPanel;
-    private CallGraphToolWindow callGraphToolWindow;
+    private final CallGraphToolWindow callGraphToolWindow;
     private Map<Shape, Node> nodeShapesMap;
     private Node hoveredNode;
     private Node clickedNode;

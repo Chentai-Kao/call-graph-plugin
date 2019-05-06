@@ -26,8 +26,6 @@ public class CallGraphToolWindow {
     private JButton showOnlyDownstreamButton;
     private JButton showOnlyUpstreamDownstreamButton;
     private JCheckBox upstreamDownstreamScopeCheckbox;
-    private JCheckBox viewPackageNameCheckBox;
-    private JCheckBox viewFilePathCheckBox;
     private JButton fitGraphToViewButton;
     private JButton fitGraphToBestRatioButton;
     private JButton increaseXGridButton;
@@ -239,8 +237,6 @@ public class CallGraphToolWindow {
         // disable some checkboxes and buttons
         this.viewPackageNameComboBox.setEnabled(false);
         this.viewFilePathComboBox.setEnabled(false);
-        this.viewPackageNameCheckBox.setEnabled(false);
-        this.viewFilePathCheckBox.setEnabled(false);
         this.fitGraphToBestRatioButton.setEnabled(false);
         this.fitGraphToViewButton.setEnabled(false);
         this.increaseXGridButton.setEnabled(false);
@@ -270,10 +266,6 @@ public class CallGraphToolWindow {
         // enable some checkboxes and buttons
         this.viewPackageNameComboBox.setEnabled(true);
         this.viewFilePathComboBox.setEnabled(true);
-        this.viewPackageNameCheckBox.setEnabled(true);
-        this.viewPackageNameCheckBox.setSelected(true);
-        this.viewFilePathCheckBox.setEnabled(true);
-        this.viewFilePathCheckBox.setSelected(false);
         this.fitGraphToBestRatioButton.setEnabled(true);
         this.fitGraphToViewButton.setEnabled(true);
         this.increaseXGridButton.setEnabled(true);
