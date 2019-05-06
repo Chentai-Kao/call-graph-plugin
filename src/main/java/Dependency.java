@@ -43,7 +43,6 @@ class Dependency {
         try {
             PsiFile callerFile = this.caller.getContainingFile();
             PsiFile calleeFile = this.callee.getContainingFile();
-            System.out.printf("isValid ? %s (%d <> %d) -> %s (%d <> %d), %b (%b %b %b %b)\n", caller.getName(), callerFile.getModificationStamp(), this.callerFileModificationStamp, callee.getName(), calleeFile.getModificationStamp(), this.calleeFileModificationStamp, files.contains(callerFile) && files.contains(calleeFile) && callerFile.getModificationStamp() == this.callerFileModificationStamp && calleeFile.getModificationStamp() == this.calleeFileModificationStamp, files.contains(callerFile), files.contains(calleeFile), callerFile.getModificationStamp() == this.callerFileModificationStamp, calleeFile.getModificationStamp() == this.calleeFileModificationStamp);
             return files.contains(callerFile) &&
                     files.contains(calleeFile) &&
                     callerFile.getModificationStamp() == this.callerFileModificationStamp &&
