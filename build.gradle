@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.jetbrains'
-//version '0.1.3' // plugin version, update me! (specified in plugins.xml)
+//version '0.0.0' // plugin version, update me! (specified in plugins.xml instead)
 
 sourceCompatibility = 1.8
 
@@ -26,4 +26,8 @@ intellij {
     version '2019.1' // Intellij version to build against
     pluginName 'call-graph'
     intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
+}
+
+publishPlugin {
+    token intellijPublishToken
 }

@@ -4,7 +4,7 @@
     <name>Call Graph</name>
 
     <!-- Plugin version -->
-    <version>0.1.4</version>
+    <version>0.1.5</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
@@ -40,14 +40,14 @@
       <p>0.1:</p>
       <ul>
         <li>Initial release</li>
-        <li>Support for <code>Java</code></li>
+        <li>Support <code>Java</code></li>
         <li>
-          Support for building call graph from functions of
-          <b>entire project</b>, <b>single module</b>, or <b>single folder path</b>
+          Support building call graph from functions of
+          <b>the entire project</b>, <b>a single module</b>, or <b>a single folder path</b>
         </li>
-        <li>Support for two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b></li>
-        <li>Support jumping from/to source code</li>
-        <li>Various bug fixes</li>
+        <li>Support two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b></li>, while you can tweak grid size yourself
+        <li>Support building call graph by right-clicking any function in the source code</li>
+        <li>Support jumping to function definition in source code from any function node in the graph</li>
       </ul>
     ]]></change-notes>
 
@@ -120,11 +120,10 @@
              - "popup" (optional) specifies how the group is presented in the menu. If a group has popup="true",
                actions in it are placed in a submenu; for popup="false", actions are displayed as a section of
                the same menu delimited by separators. -->
-        <!--suppress PluginXmlValidity -->
         <group id="CallGraphActionGroup"
                text="Call Graph"
                description="Actions of the Call Graph plugin"
-               icon="icons/icon.svg"
+               icon="/icons/icon.svg"
                popup="false">
             <!-- The <action> element defines an action to register.
                  - "id" (required) specifies an unique identifier for the action.
@@ -133,26 +132,23 @@
                  - "use-shortcut-of" (optional) specifies the ID of the action whose keyboard shortcut this action uses.
                  - "description" (optional) specifies the text displayed in the status bar when the action is focused.
                  - "icon" (optional) specifies the icon displayed on the toolbar button or next to the menu item. -->
-            <!--suppress PluginXmlValidity -->
             <action id="CallGraph.ViewUpstreamDownstreamCallGraphFromSource"
                     class="ViewUpstreamDownstreamAction"
                     text="View upstream/downstream call graph"
                     description="View the upstream/downstream call graph of this function"
-                    icon="icons/icon.svg">
+                    icon="/icons/icon.svg">
             </action>
-            <!--suppress PluginXmlValidity -->
             <action id="CallGraph.ViewUpstreamCallGraphFromSource"
                     class="ViewUpstreamAction"
                     text="View upstream call graph"
                     description="View the upstream call graph of this function"
-                    icon="icons/icon.svg">
+                    icon="/icons/icon.svg">
             </action>
-            <!--suppress PluginXmlValidity -->
             <action id="CallGraph.ViewDownstreamCallGraphFromSource"
                     class="ViewDownstreamAction"
                     text="View downstream call graph"
                     description="View the downstream call graph of this function"
-                    icon="icons/icon.svg">
+                    icon="/icons/icon.svg">
             </action>
             <!-- The <add-to-group> node specifies that the action should be added to an existing group.
                  An action can be added to several groups.
