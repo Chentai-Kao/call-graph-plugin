@@ -3,9 +3,9 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Arrays;
 
 enum ViewOptions {
-    ALWAYS("Always"),
-    HOVERED("Hovered"),
-    NEVER("Never");
+    ALWAYS("Always show"),
+    HOVERED("When hovered"),
+    NEVER("Hide");
 
     private final String text;
 

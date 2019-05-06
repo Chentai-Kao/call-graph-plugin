@@ -403,7 +403,7 @@
                     </constraints>
                     <properties>
                       <icon value="icons/view.png"/>
-                      <text value="&lt;html&gt;&lt;b&gt;View class name&lt;/b&gt;&lt;/html&gt;"/>
+                      <text value="&lt;html&gt;&lt;b&gt;Class name&lt;/b&gt;&lt;/html&gt;"/>
                     </properties>
                   </component>
                   <component id="1d48a" class="javax.swing.JLabel">
@@ -412,7 +412,7 @@
                     </constraints>
                     <properties>
                       <icon value="icons/view.png"/>
-                      <text value="&lt;html&gt;&lt;b&gt;View file path&lt;/b&gt;&lt;/html&gt;"/>
+                      <text value="&lt;html&gt;&lt;b&gt;File path&lt;/b&gt;&lt;/html&gt;"/>
                     </properties>
                   </component>
                 </children>
