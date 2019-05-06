@@ -45,7 +45,9 @@
           Support building call graph from functions of
           <b>the entire project</b>, <b>a single module</b>, or <b>a single folder path</b>
         </li>
-        <li>Support two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b></li>, while you can tweak grid size yourself
+        <li>
+          Support two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b>. You can also tweak the grid size yourself
+        </li>
         <li>Support building call graph by right-clicking any function in the source code</li>
         <li>Support jumping to function definition in source code from any function node in the graph</li>
       </ul>
