@@ -238,7 +238,6 @@
                 </constraints>
                 <properties>
                   <enabled value="true"/>
-                  <indeterminate value="false"/>
                   <string value=""/>
                   <stringPainted value="true"/>
                   <visible value="false"/>

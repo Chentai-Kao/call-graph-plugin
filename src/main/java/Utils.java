@@ -4,7 +4,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
-import com.intellij.openapi.module.impl.scopes.ModulesScope;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
@@ -20,11 +19,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.SearchScope;
-import com.intellij.psi.search.searches.ReferencesSearch;
 import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.util.PsiUtilCore;
 import guru.nidi.graphviz.attribute.RankDir;
 import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
@@ -66,84 +61,108 @@ class Utils {
     }
 
     @NotNull
-    static Map<PsiMethod, Set<PsiMethod>> getDependencyFromProject(
-            @NotNull CanvasConfig canvasConfig,
-            @NotNull Set<PsiMethod> allMethods) {
-        canvasConfig.getCallGraphToolWindow().resetDeterminateProgressBar(allMethods.size());
-        return allMethods.stream()
-                .collect(Collectors.toMap(
-                        method -> method,
-                        method -> {
-                            canvasConfig.getCallGraphToolWindow().incrementProgressBar(1);
-                            SearchScope searchScope = getSearchScope(canvasConfig, method);
-                            return ReferencesSearch
-                                    .search(method, searchScope)
-                                    .findAll()
-                                    .stream()
-                                    .map(reference -> getContainingKnownMethod(reference.getElement(), allMethods))
-                                    .filter(Objects::nonNull)
-                                    .collect(Collectors.toSet());
-                        }
-                ));
-    }
-
-    @NotNull
-    static Map<PsiMethod, Set<PsiMethod>> getDependencyFromMethods(
-            @NotNull Set<PsiMethod> methods,
+    static Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> getDependencySnapshot(
             @NotNull CanvasConfig canvasConfig) {
-        canvasConfig.getCallGraphToolWindow().resetIndeterminateProgressBar();
-        // upstream mapping of { callee => callers }
-        CanvasConfig.BuildType buildType = canvasConfig.getBuildType();
-        boolean needsUpstream = buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST ||
-                buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST ||
-                buildType == CanvasConfig.BuildType.MODULE ||
-                buildType == CanvasConfig.BuildType.DIRECTORY ||
-                buildType == CanvasConfig.BuildType.UPSTREAM ||
-                buildType == CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM;
-        Map<PsiMethod, Set<PsiMethod>> upstreamDependency = needsUpstream ?
-                getUpstreamDependency(canvasConfig, methods, new HashSet<>()) : Collections.emptyMap();
-        // downstream mapping of { callee => callers }
-        boolean needsDownstream = buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST ||
-                buildType == CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST ||
-                buildType == CanvasConfig.BuildType.MODULE ||
-                buildType == CanvasConfig.BuildType.DIRECTORY ||
-                buildType == CanvasConfig.BuildType.DOWNSTREAM ||
-                buildType == CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM;
-        Map<PsiMethod, Set<PsiMethod>> downstreamDependency = needsDownstream ?
-                getDownstreamDependency(canvasConfig, methods) : Collections.emptyMap();
-        return Stream
-                .concat(upstreamDependency.entrySet().stream(), downstreamDependency.entrySet().stream())
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
-                ));
-    }
-
-    @NotNull
-    static Set<PsiMethod> getAllMethodsFromProject(@NotNull CanvasConfig canvasConfig) {
-        Set<PsiFile> allFiles = getSourceCodeRoots(canvasConfig)
-                .stream()
-                .flatMap(contentSourceRoot -> {
-                    List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
-                    ContentIterator contentIterator = child -> {
-                        if (child.isValid() && !child.isDirectory()) {
-                            String extension = Optional.ofNullable(child.getExtension()).orElse("");
-                            if (extension.equals("java")) {
-                                childrenVirtualFiles.add(child);
-                            }
-                        }
-                        return true;
-                    };
-                    VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
-                    return childrenVirtualFiles.stream()
-                            .map(file -> PsiManager.getInstance(canvasConfig.getProject()).findFile(file));
+        // create a temporary config to get all methods from the entire project
+        CanvasConfig tempConfig = new CanvasConfig()
+                .setProject(canvasConfig.getProject())
+                .setBuildType(CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST);
+        Set<PsiMethod> allMethods = Utils.getMethodsInScope(tempConfig);
+        canvasConfig.getCallGraphToolWindow().resetProgressBar(allMethods.size());
+        return allMethods.stream()
+                .flatMap(method -> {
+                    canvasConfig.getCallGraphToolWindow().incrementProgressBar();
+                    return PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class)
+                            .stream()
+                            .map(PsiElement::getContext)
+                            .filter(Objects::nonNull)
+                            .flatMap(context -> Arrays.stream(context.getReferences()))
+                            .map(PsiReference::resolve)
+                            .filter(psiElement -> psiElement instanceof PsiMethod)
+                            .map(psiElement -> new AbstractMap.SimpleEntry<>(method, (PsiMethod) psiElement));
                 })
                 .collect(Collectors.toSet());
-        return allFiles.stream()
-                .flatMap(psiFile -> Stream.of(((PsiJavaFile) psiFile).getClasses())) // get all classes
-                .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
-                .collect(Collectors.toSet());
+    }
+
+    @NotNull
+    static Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> getDependencyView(
+            @NotNull CanvasConfig canvasConfig,
+            @NotNull Set<PsiMethod> methods,
+            @NotNull Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencySnapshot) {
+        switch (canvasConfig.getBuildType()) {
+            case WHOLE_PROJECT_WITH_TEST_LIMITED:
+            case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
+            case MODULE_LIMITED:
+            case DIRECTORY_LIMITED:
+                return dependencySnapshot.stream()
+                        .filter(pair -> methods.contains(pair.getKey()) && methods.contains(pair.getValue()))
+                        .collect(Collectors.toSet());
+            case WHOLE_PROJECT_WITH_TEST:
+            case WHOLE_PROJECT_WITHOUT_TEST:
+            case MODULE:
+            case DIRECTORY:
+                return dependencySnapshot.stream()
+                        .filter(pair -> methods.contains(pair.getKey()) || methods.contains(pair.getValue()))
+                        .collect(Collectors.toSet());
+            case UPSTREAM:
+                return getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), true);
+            case DOWNSTREAM:
+                return getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), false);
+            case UPSTREAM_DOWNSTREAM:
+                Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> upstream =
+                        getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), true);
+                Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> downstream =
+                        getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), false);
+                return Stream.concat(upstream.stream(), downstream.stream()).collect(Collectors.toSet());
+            default:
+                break;
+        }
+        // should not reach here
+        throw new RuntimeException();
+    }
+
+    @NotNull
+    static Set<PsiMethod> getMethodsInScope(@NotNull CanvasConfig canvasConfig) {
+        switch (canvasConfig.getBuildType()) {
+            case WHOLE_PROJECT_WITH_TEST_LIMITED:
+            case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
+            case MODULE_LIMITED:
+            case DIRECTORY_LIMITED:
+            case WHOLE_PROJECT_WITH_TEST:
+            case WHOLE_PROJECT_WITHOUT_TEST:
+            case MODULE:
+            case DIRECTORY:
+                Set<PsiFile> allFiles = getSourceCodeRoots(canvasConfig)
+                        .stream()
+                        .flatMap(contentSourceRoot -> {
+                            List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
+                            ContentIterator contentIterator = child -> {
+                                if (child.isValid() && !child.isDirectory()) {
+                                    String extension = Optional.ofNullable(child.getExtension()).orElse("");
+                                    if (extension.equals("java")) {
+                                        childrenVirtualFiles.add(child);
+                                    }
+                                }
+                                return true;
+                            };
+                            VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
+                            return childrenVirtualFiles.stream()
+                                    .map(file -> PsiManager.getInstance(canvasConfig.getProject()).findFile(file));
+                        })
+                        .collect(Collectors.toSet());
+                return allFiles.stream()
+                        .flatMap(psiFile -> Stream.of(((PsiJavaFile) psiFile).getClasses())) // get all classes
+                        .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
+                        .collect(Collectors.toSet());
+            case UPSTREAM:
+            case DOWNSTREAM:
+            case UPSTREAM_DOWNSTREAM:
+                return Collections.singleton(canvasConfig.getFocusedMethod());
+            default:
+                break;
+        }
+        // should not reach here
+        throw new RuntimeException();
     }
 
     static void layout(@NotNull Graph graph) {
@@ -249,6 +268,29 @@ class Utils {
                 ));
     }
 
+    static void runCallGraphFromAction(
+            @NotNull AnActionEvent anActionEvent,
+            @NotNull CanvasConfig.BuildType buildType) {
+        Project project = anActionEvent.getProject();
+        PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT); // get the element under editor caret
+        if (project != null && psiElement instanceof PsiMethod) {
+            PsiMethod focusedMethod = (PsiMethod) psiElement;
+            ToolWindowManager.getInstance(project)
+                    .getToolWindow("Call Graph")
+                    .activate(() -> ServiceManager.getService(project, CallGraphToolWindowProjectService.class)
+                            .getCallGraphToolWindow()
+                            .setFocusedMethod(focusedMethod)
+                            .run(buildType));
+        }
+    }
+
+    static void setActionEnabledAndVisibleByContext(@NotNull AnActionEvent anActionEvent) {
+        Project project = anActionEvent.getProject();
+        PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT);
+        boolean isEnabledAndVisible = project != null && psiElement instanceof PsiMethod;
+        anActionEvent.getPresentation().setEnabledAndVisible(isEnabledAndVisible);
+    }
+
     private static void applyRawLayoutBlueprintToGraph(@NotNull Map<String, Point2D> blueprint, @NotNull Graph graph) {
         blueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setRawLayoutPoint(point));
     }
@@ -342,121 +384,6 @@ class Utils {
     }
 
     @NotNull
-    private static Map<PsiMethod, Set<PsiMethod>> getUpstreamDependency(
-            @NotNull CanvasConfig canvasConfig,
-            @NotNull Set<PsiMethod> methods,
-            @NotNull Set<PsiMethod> seenMethods) {
-        if (methods.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        canvasConfig.getCallGraphToolWindow().incrementProgressBar(methods.size());
-        Map<PsiMethod, Set<PsiMethod>> directUpstream = methods.stream()
-                .collect(Collectors.toMap(
-                        method -> method,
-                        method -> {
-                            SearchScope searchScope =
-                                    GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-                            Collection<PsiReference> references =
-                                    ReferencesSearch.search(method, searchScope).findAll();
-                            return references.stream()
-                                    .map(reference ->
-                                            PsiTreeUtil.getParentOfType(reference.getElement(), PsiMethod.class)
-                                    )
-                                    .filter(Objects::nonNull)
-                                    .collect(Collectors.toSet());
-                        }
-                ));
-        seenMethods.addAll(methods);
-        Set<PsiMethod> parents = directUpstream.values()
-                .stream()
-                .flatMap(Collection::stream)
-                .filter(parent -> !seenMethods.contains(parent))
-                .collect(Collectors.toSet());
-        Map<PsiMethod, Set<PsiMethod>> indirectUpstream = getUpstreamDependency(canvasConfig, parents, seenMethods);
-        return Stream.concat(directUpstream.entrySet().stream(), indirectUpstream.entrySet().stream())
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
-                ));
-    }
-
-    @NotNull
-    private static Map<PsiMethod, Set<PsiMethod>> getDownstreamDependency(
-            @NotNull CanvasConfig canvasConfig,
-            @NotNull Set<PsiMethod> methods) {
-        // downstream mapping of { caller => callees }
-        Map<PsiMethod, Set<PsiMethod>> downstreamMethodCalleesMap =
-                getDownstreamMethodCalleesMap(canvasConfig, methods, new HashSet<>());
-        // reverse the key value relation of downstream mapping from { caller => callees } to { callee => callers }
-        return downstreamMethodCalleesMap.entrySet()
-                .stream()
-                .flatMap(entry -> {
-                    PsiMethod caller = entry.getKey();
-                    Set<PsiMethod> callees = entry.getValue();
-                    return callees.stream().map(callee ->
-                            new AbstractMap.SimpleEntry<>(callee, new HashSet<>(Collections.singletonList(caller))));
-                })
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
-                ));
-    }
-
-    @NotNull
-    private static Map<PsiMethod, Set<PsiMethod>> getDownstreamMethodCalleesMap(
-            @NotNull CanvasConfig canvasConfig,
-            @NotNull Set<PsiMethod> methods,
-            @NotNull Set<PsiMethod> seenMethods) {
-        if (methods.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        canvasConfig.getCallGraphToolWindow().incrementProgressBar(methods.size());
-        Map<PsiMethod, Set<PsiMethod>> directDownstream = methods.stream()
-                .collect(Collectors.toMap(
-                        method -> method,
-                        method -> {
-                            Collection<PsiIdentifier> identifiers =
-                                    PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class);
-                            return identifiers.stream()
-                                    .map(PsiElement::getContext)
-                                    .filter(Objects::nonNull)
-                                    .flatMap(context -> Arrays.stream(context.getReferences()))
-                                    .map(PsiReference::resolve)
-                                    .filter(psiElement -> psiElement instanceof PsiMethod)
-                                    .map(psiElement -> (PsiMethod) psiElement)
-                                    .collect(Collectors.toSet());
-                        }
-                ));
-        seenMethods.addAll(methods);
-        Set<PsiMethod> children = directDownstream.values()
-                .stream()
-                .flatMap(Collection::stream)
-                .filter(child -> !seenMethods.contains(child))
-                .collect(Collectors.toSet());
-        Map<PsiMethod, Set<PsiMethod>> indirectDownstream =
-                getDownstreamMethodCalleesMap(canvasConfig, children, seenMethods);
-        return Stream.concat(directDownstream.entrySet().stream(), indirectDownstream.entrySet().stream())
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (left, right) -> Stream.concat(left.stream(), right.stream()).collect(Collectors.toSet())
-                ));
-    }
-
-    @Nullable
-    private static PsiMethod getContainingKnownMethod(
-            @NotNull PsiElement psiElement,
-            @NotNull Set<PsiMethod> knownMethods) {
-        PsiMethod parent = PsiTreeUtil.getParentOfType(psiElement, PsiMethod.class);
-        if (parent == null) {
-            return null;
-        }
-        return knownMethods.contains(parent) ? parent : getContainingKnownMethod(parent, knownMethods);
-    }
-
-    @NotNull
     private static Point2D getGridSize(@NotNull Map<String, Point2D> blueprint) {
         float precisionFactor = 1000;
         Set<Long> xUniqueValues = blueprint.values()
@@ -475,30 +402,6 @@ class Utils {
 
     private static float getAverageElementDifference(@NotNull Set<Long> elements) {
         return elements.size() < 2 ? 0 : (max(elements) - min(elements)) / (float) (elements.size() - 1);
-    }
-
-    @NotNull
-    private static SearchScope getSearchScope(@NotNull CanvasConfig canvasConfig, @NotNull PsiMethod method) {
-        switch (canvasConfig.getBuildType()) {
-            case WHOLE_PROJECT_WITH_TEST_LIMITED:
-                return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
-            case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
-                GlobalSearchScope[] modulesScope = getActiveModules(canvasConfig.getProject())
-                        .stream()
-                        .map(module -> module.getModuleScope(false))
-                        .toArray(GlobalSearchScope[]::new);
-                return GlobalSearchScope.union(modulesScope);
-            case MODULE_LIMITED:
-                Set<Module> selectedModules =
-                        getSelectedModules(canvasConfig.getProject(), canvasConfig.getSelectedModuleName());
-                return new ModulesScope(selectedModules, canvasConfig.getProject());
-            case DIRECTORY_LIMITED:
-                System.out.println("(getSearchScope) Directory scope not implemented");
-                break;
-            default:
-                break;
-        }
-        return GlobalSearchScope.allScope(PsiUtilCore.getProjectInReadAction(method));
     }
 
     @NotNull
@@ -587,26 +490,28 @@ class Utils {
                 ));
     }
 
-    static void runCallGraphFromAction(
-            @NotNull AnActionEvent anActionEvent,
-            @NotNull CanvasConfig.BuildType buildType) {
-        Project project = anActionEvent.getProject();
-        PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT); // get the element under editor caret
-        if (project != null && psiElement instanceof PsiMethod) {
-            PsiMethod focusedMethod = (PsiMethod) psiElement;
-            ToolWindowManager.getInstance(project)
-                    .getToolWindow("Call Graph")
-                    .activate(() -> ServiceManager.getService(project, CallGraphToolWindowProjectService.class)
-                            .getCallGraphToolWindow()
-                            .setFocusedMethod(focusedMethod)
-                            .run(buildType));
+    @NotNull
+    private static Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> getNestedDependencyView(
+            @NotNull Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencySnapshot,
+            @NotNull Set<PsiMethod> methods,
+            @NotNull Set<PsiMethod> seenMethods,
+            boolean isUpstream) {
+        if (methods.isEmpty()) {
+            return Collections.emptySet();
         }
-    }
-
-    static void setActionEnabledAndVisibleByContext(@NotNull AnActionEvent anActionEvent) {
-        Project project = anActionEvent.getProject();
-        PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT);
-        boolean isEnabledAndVisible = project != null && psiElement instanceof PsiMethod;
-        anActionEvent.getPresentation().setEnabledAndVisible(isEnabledAndVisible);
+        Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> directPairs = dependencySnapshot.stream()
+                .filter(pair -> {
+                    PsiMethod self = isUpstream ? pair.getValue() : pair.getKey();
+                    return methods.contains(self);
+                })
+                .collect(Collectors.toSet());
+        Set<PsiMethod> nextBatchMethods = directPairs.stream()
+                .map(pair -> isUpstream ? pair.getKey() : pair.getValue())
+                .filter(method -> !seenMethods.contains(method))
+                .collect(Collectors.toSet());
+        seenMethods.addAll(nextBatchMethods);
+        Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> nestedPairs =
+                getNestedDependencyView(dependencySnapshot, nextBatchMethods, seenMethods, isUpstream);
+        return Stream.concat(directPairs.stream(), nestedPairs.stream()).collect(Collectors.toSet());
     }
 }

@@ -54,7 +54,7 @@ class Graph {
             Set<Node> visitedNodes = new HashSet<>();
             this.connectedComponents = this.getNodes()
                     .stream()
-                    .map(node -> dfsFromNodes(new HashSet<>(Collections.singletonList(node)), visitedNodes))
+                    .map(node -> dfsFromNodes(Collections.singleton(node), visitedNodes))
                     .filter(component -> !component.isEmpty())
                     .map(component -> {
                         Map<String, Node> componentNodes = this.nodes.entrySet()

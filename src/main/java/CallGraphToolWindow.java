@@ -79,19 +79,14 @@ public class CallGraphToolWindow {
         this.viewSourceCodeButton.setEnabled(isEnabled);
     }
 
-    void resetIndeterminateProgressBar() {
-        this.loadingProgressBar.setIndeterminate(true);
-        this.loadingProgressBar.setValue(0);
-    }
-
-    void resetDeterminateProgressBar(int maximum) {
+    void resetProgressBar(int maximum) {
         this.loadingProgressBar.setIndeterminate(false);
         this.loadingProgressBar.setMaximum(maximum);
         this.loadingProgressBar.setValue(0);
     }
 
-    void incrementProgressBar(int delta) {
-        int newValue = this.loadingProgressBar.getValue() + delta;
+    void incrementProgressBar() {
+        int newValue = this.loadingProgressBar.getValue() + 1;
         this.loadingProgressBar.setValue(newValue);
         String text = this.loadingProgressBar.isIndeterminate() ?
                 String.format("%d functions processed", newValue) :
