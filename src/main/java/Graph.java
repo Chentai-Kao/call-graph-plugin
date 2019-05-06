@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 class Graph {
     private Map<String, Node> nodes = new HashMap<>();
@@ -54,7 +53,7 @@ class Graph {
             Set<Node> visitedNodes = new HashSet<>();
             this.connectedComponents = this.getNodes()
                     .stream()
-                    .map(node -> dfsFromNodes(Collections.singleton(node), visitedNodes))
+                    .map(node -> traverseBfs(node, visitedNodes))
                     .filter(component -> !component.isEmpty())
                     .map(component -> {
                         Map<String, Node> componentNodes = this.nodes.entrySet()
@@ -75,18 +74,23 @@ class Graph {
     }
 
     @NotNull
-    private Set<Node> dfsFromNodes(@NotNull Set<Node> roots, @NotNull Set<Node> visitedNodes) {
-        return roots.stream()
-                .flatMap(root -> {
-                    if (visitedNodes.contains(root)) {
-                        return Stream.empty();
-                    }
-                    visitedNodes.add(root);
-                    Set<Node> subTree = dfsFromNodes(root.getNeighbors(), visitedNodes);
-                    subTree.add(root);
-                    return subTree.stream();
-                })
-                .collect(Collectors.toSet());
+    private Set<Node> traverseBfs(
+            @NotNull Node root,
+            @NotNull Set<Node> visitedNodes) {
+        if (visitedNodes.contains(root)) {
+            return Collections.emptySet();
+        }
+        Set<Node> path = new HashSet<>();
+        Set<Node> queue = Collections.singleton(root);
+        while (!queue.isEmpty()) {
+            visitedNodes.addAll(queue);
+            path.addAll(queue);
+            queue = queue.stream()
+                    .flatMap(node -> node.getNeighbors().stream())
+                    .filter(node -> !visitedNodes.contains(node))
+                    .collect(Collectors.toSet());
+        }
+        return path;
     }
 
     @NotNull
