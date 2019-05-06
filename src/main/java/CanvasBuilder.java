@@ -26,13 +26,19 @@ class CanvasBuilder {
         Set<PsiFile> files = Utils.getSourceCodeFiles(canvasConfig);
         Set<PsiMethod> methods = Utils.getMethodsInScope(canvasConfig, files);
         Set<Dependency> dependencyView = Utils.getDependencyView(canvasConfig, methods, this.dependencySnapshot);
-        return visualizeGraph(methods, dependencyView);
+        Graph graph = buildGraph(methods, dependencyView);
+        Canvas canvas = renderGraphOnCanvas(canvasConfig.getCallGraphToolWindow(), graph);
+
+        // highlight selected node if the graph is built on a focused method upstream/downstream
+        if (canvasConfig.getFocusedMethod() != null) {
+            Node clickedNode = graph.getNodeByMethod(canvasConfig.getFocusedMethod());
+            canvas.setClickedNode(clickedNode);
+        }
+        return canvas;
     }
 
     @NotNull
-    private Canvas visualizeGraph(
-            @NotNull Set<PsiMethod> methods,
-            @NotNull Set<Dependency> dependencyView) {
+    private Graph buildGraph(@NotNull Set<PsiMethod> methods, @NotNull Set<Dependency> dependencyView) {
         Graph graph = new Graph();
         methods.forEach(graph::addNode);
         dependencyView.forEach(dependency -> {
@@ -41,12 +47,12 @@ class CanvasBuilder {
             graph.addEdge(dependency.getCaller(), dependency.getCallee());
         });
         Utils.layout(graph);
-        return renderGraphOnCanvas(graph);
+        return graph;
     }
 
     @NotNull
-    private Canvas renderGraphOnCanvas(@NotNull Graph graph) {
-        Canvas canvas = new Canvas(graph);
+    private Canvas renderGraphOnCanvas(@NotNull CallGraphToolWindow callGraphToolWindow, @NotNull Graph graph) {
+        Canvas canvas = new Canvas(callGraphToolWindow, graph);
         MouseEventHandler mouseEventHandler = new MouseEventHandler(canvas);
         canvas.addMouseListener(mouseEventHandler);
         canvas.addMouseMotionListener(mouseEventHandler);

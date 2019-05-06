@@ -33,8 +33,9 @@ class Canvas extends JPanel {
     private final Color upstreamColor = new JBColor(new Color(0xFBBC05), new Color(0xBE9117));
     private final Color downstreamColor = new JBColor(new Color(0x34A853), new Color(0x538863));
 
-    Canvas(@NotNull Graph graph) {
+    Canvas(@NotNull CallGraphToolWindow callGraphToolWindow, @NotNull Graph graph) {
         super();
+        this.callGraphToolWindow = callGraphToolWindow;
         this.graph = graph;
     }
 
@@ -142,16 +143,10 @@ class Canvas extends JPanel {
                 });
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     @NotNull
     Canvas setCanvasPanel(@NotNull JPanel canvasPanel) {
         this.canvasPanel = canvasPanel;
-        return this;
-    }
-
-    @SuppressWarnings("UnusedReturnValue")
-    @NotNull
-    Canvas setCallGraphToolWindow(@NotNull CallGraphToolWindow callGraphToolWindow) {
-        this.callGraphToolWindow = callGraphToolWindow;
         return this;
     }
 

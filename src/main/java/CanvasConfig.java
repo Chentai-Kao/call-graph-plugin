@@ -71,7 +71,7 @@ class CanvasConfig {
         return this;
     }
 
-    @NotNull
+    @Nullable
     PsiMethod getFocusedMethod() {
         return focusedMethod;
     }

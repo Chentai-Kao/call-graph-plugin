@@ -238,9 +238,7 @@ public class CallGraphToolWindow {
 
     private void setupUiAfterRun() {
         // show the rendered canvas
-        this.canvas
-                .setCanvasPanel(this.canvasPanel)
-                .setCallGraphToolWindow(this);
+        this.canvas.setCanvasPanel(this.canvasPanel);
         this.canvasPanel.add(this.canvas);
         this.canvasPanel.updateUI();
         // stats label
