@@ -230,7 +230,7 @@ class Utils {
                 }
             }
         }
-        return "";
+        return "(empty)";
     }
 
     @NotNull

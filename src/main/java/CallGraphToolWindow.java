@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.geom.Point2D;
+import java.util.Arrays;
 
 @SuppressWarnings("WeakerAccess")
 public class CallGraphToolWindow {
@@ -35,17 +36,27 @@ public class CallGraphToolWindow {
     private JButton decreaseYGridButton;
     private JLabel statsLabel;
     private JButton viewSourceCodeButton;
+    private JComboBox<String> viewPackageNameComboBox;
+    private JComboBox<String> viewFilePathComboBox;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
     private PsiMethod focusedMethod;
 
     public CallGraphToolWindow() {
+        // drop-down options
+        Arrays.stream(ViewOptions.values()).forEach(option -> this.viewPackageNameComboBox.addItem(option.getText()));
+        this.viewPackageNameComboBox.setSelectedItem(ViewOptions.HOVERED.getText());
+        Arrays.stream(ViewOptions.values()).forEach(option -> this.viewFilePathComboBox.addItem(option.getText()));
+        this.viewFilePathComboBox.setSelectedItem(ViewOptions.NEVER.getText());
+
         // click handlers for buttons
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
         this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
         this.runButton.addActionListener(e -> run(getSelectedBuildType()));
+        this.viewPackageNameComboBox.addActionListener(e -> this.canvas.repaint());
+        this.viewFilePathComboBox.addActionListener(e -> this.canvas.repaint());
         this.showOnlyUpstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM));
         this.showOnlyDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.DOWNSTREAM));
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
@@ -94,12 +105,21 @@ public class CallGraphToolWindow {
         this.loadingProgressBar.setString(text);
     }
 
-    boolean isRenderFunctionPackageName() {
-        return this.viewPackageNameCheckBox.isSelected();
+    boolean isRenderFunctionPackageName(boolean isNodeHovered) {
+        return isViewOptionActive(this.viewPackageNameComboBox, isNodeHovered);
     }
 
-    boolean isRenderFunctionFilePath() {
-        return this.viewFilePathCheckBox.isSelected();
+    boolean isRenderFunctionFilePath(boolean isNodeHovered) {
+        return isViewOptionActive(this.viewFilePathComboBox, isNodeHovered);
+    }
+
+    boolean isViewOptionActive(@NotNull JComboBox<String> comboBox, boolean isNodeHovered) {
+        String selectedText = (String) comboBox.getSelectedItem();
+        if (selectedText == null) {
+            return false;
+        }
+        ViewOptions option = ViewOptions.findByText(selectedText);
+        return option == ViewOptions.ALWAYS || (option == ViewOptions.HOVERED && isNodeHovered);
     }
 
     void run(@NotNull CanvasConfig.BuildType buildType) {
@@ -217,6 +237,8 @@ public class CallGraphToolWindow {
                 break;
         }
         // disable some checkboxes and buttons
+        this.viewPackageNameComboBox.setEnabled(false);
+        this.viewFilePathComboBox.setEnabled(false);
         this.viewPackageNameCheckBox.setEnabled(false);
         this.viewFilePathCheckBox.setEnabled(false);
         this.fitGraphToBestRatioButton.setEnabled(false);
@@ -246,6 +268,8 @@ public class CallGraphToolWindow {
         // hide progress bar
         this.loadingProgressBar.setVisible(false);
         // enable some checkboxes and buttons
+        this.viewPackageNameComboBox.setEnabled(true);
+        this.viewFilePathComboBox.setEnabled(true);
         this.viewPackageNameCheckBox.setEnabled(true);
         this.viewPackageNameCheckBox.setSelected(true);
         this.viewFilePathCheckBox.setEnabled(true);

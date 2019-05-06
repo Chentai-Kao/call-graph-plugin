@@ -4,12 +4,14 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.geom.*;
+import java.awt.geom.Arc2D;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 class Canvas extends JPanel {
     private final Graph graph;
@@ -28,7 +30,7 @@ class Canvas extends JPanel {
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
     private final Color backgroundColor = new JBColor(new Color(0xFDFEFF), new Color(0x292B2D));
     private final Color unHighlightedColor = new JBColor(new Color(0xC6C8CA), new Color(0x585A5C));
-    private final Color unHighlightedTextColor = new JBColor(new Color(0x626466), new Color(0x949698));
+    private final Color neutralColor = new JBColor(new Color(0x626466), new Color(0x949698));
     private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x589DEF));
     private final Color upstreamColor = new JBColor(new Color(0xFBBC05), new Color(0xBE9117));
     private final Color downstreamColor = new JBColor(new Color(0x34A853), new Color(0x538863));
@@ -88,9 +90,11 @@ class Canvas extends JPanel {
                         !isNodeHighlighted(node) && !upstreamNodes.contains(node) && !downstreamNodes.contains(node)
                 )
                 .collect(Collectors.toSet());
-        unHighlightedNodes.forEach(node ->
-                drawSingleNodeLabel(graphics2D, node, node.getMethod().getName(), this.unHighlightedTextColor)
-        );
+        unHighlightedNodes.forEach(node -> {
+            List<AbstractMap.SimpleEntry<String, Color>> labels =
+                    createNodeLabels(node, this.neutralColor, false);
+            drawNodeLabels(graphics2D, node, labels, false);
+        });
 
         // draw un-highlighted nodes (upstream/downstream nodes are excluded)
         this.nodeShapesMap = new HashMap<>();
@@ -102,12 +106,14 @@ class Canvas extends JPanel {
                 });
 
         // draw upstream/downstream label and nodes
-        upstreamNodes.forEach(node ->
-                drawSingleNodeLabel(graphics2D, node, node.getMethod().getName(), this.upstreamColor)
-        );
-        downstreamNodes.forEach(node ->
-                drawSingleNodeLabel(graphics2D, node, node.getMethod().getName(), this.downstreamColor)
-        );
+        upstreamNodes.forEach(node -> {
+            List<AbstractMap.SimpleEntry<String, Color>> labels = createNodeLabels(node, this.upstreamColor, false);
+            drawNodeLabels(graphics2D, node, labels, false);
+        });
+        downstreamNodes.forEach(node -> {
+            List<AbstractMap.SimpleEntry<String, Color>> labels = createNodeLabels(node, this.downstreamColor, false);
+            drawNodeLabels(graphics2D, node, labels, false);
+        });
         upstreamNodes.forEach(node -> {
             Shape nodeShape = drawNode(graphics2D, node, this.upstreamColor);
             this.nodeShapesMap.put(nodeShape, node);
@@ -125,20 +131,9 @@ class Canvas extends JPanel {
                     // draw node
                     Shape nodeShape = drawNode(graphics2D, node, this.highlightedColor);
                     this.nodeShapesMap.put(nodeShape, node);
-                    // draw labels (stacked up)
-                    String signature = Utils.getMethodSignature(node.getMethod());
-                    String packageName = this.callGraphToolWindow.isRenderFunctionPackageName() ?
-                            Utils.getMethodPackageName(node.getMethod()) : "";
-                    String filePath = this.callGraphToolWindow.isRenderFunctionFilePath() ?
-                            Utils.getMethodFilePath(node.getMethod()) : "";
+                    // draw labels
                     List<AbstractMap.SimpleEntry<String, Color>> labels =
-                            Stream.of(
-                                    new AbstractMap.SimpleEntry<>(signature, this.highlightedColor),
-                                    new AbstractMap.SimpleEntry<>(packageName, this.unHighlightedTextColor),
-                                    new AbstractMap.SimpleEntry<>(filePath, this.unHighlightedTextColor)
-                            )
-                                    .filter(entry -> !entry.getKey().isEmpty())
-                                    .collect(Collectors.toList());
+                            createNodeLabels(node, this.highlightedColor, true);
                     drawNodeLabels(graphics2D, node, labels, true);
                 });
     }
@@ -258,13 +253,27 @@ class Canvas extends JPanel {
         return drawCircle(graphics2D, nodeCenter, this.nodeRadius, color);
     }
 
-    private void drawSingleNodeLabel(
-            @NotNull Graphics2D graphics2D,
+    @NotNull
+    private List<AbstractMap.SimpleEntry<String, Color>> createNodeLabels(
             @NotNull Node node,
-            @NotNull String label,
-            @NotNull Color labelColor) {
-        drawNodeLabels(
-                graphics2D, node, Collections.singletonList(new AbstractMap.SimpleEntry<>(label, labelColor)), false);
+            @NotNull Color signatureColor,
+            boolean isNodeHovered) {
+        // draw labels in top-down order
+        List<AbstractMap.SimpleEntry<String, Color>> labels = new ArrayList<>();
+        // function signature
+        String signature = Utils.getMethodSignature(node.getMethod());
+        labels.add(new AbstractMap.SimpleEntry<>(signature, signatureColor));
+        // package name
+        if (this.callGraphToolWindow.isRenderFunctionPackageName(isNodeHovered)) {
+            String packageName = Utils.getMethodPackageName(node.getMethod());
+            labels.add(new AbstractMap.SimpleEntry<>(packageName, this.unHighlightedColor));
+        }
+        // file path
+        if (this.callGraphToolWindow.isRenderFunctionFilePath(isNodeHovered)) {
+            String filePath = Utils.getMethodFilePath(node.getMethod());
+            labels.add(new AbstractMap.SimpleEntry<>(filePath, this.unHighlightedColor));
+        }
+        return labels;
     }
 
     private void drawNodeLabels(
