@@ -1,13 +1,15 @@
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.AbstractMap;
+import java.util.HashSet;
 import java.util.Set;
 
 class CanvasBuilder {
     private ProgressIndicator progressIndicator;
+    private Set<Dependency> dependencySnapshot = new HashSet<>();
 
     @NotNull
     Canvas build(@NotNull CanvasConfig canvasConfig) {
@@ -18,28 +20,25 @@ class CanvasBuilder {
         this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
 
         // build a dependency snapshot for the entire code base
-        Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencySnapshot =
-                Utils.getDependencySnapshot(canvasConfig);
+        this.dependencySnapshot = Utils.getDependencySnapshot(canvasConfig, this.dependencySnapshot);
 
         // visualize the viewing part as graph
-        Set<PsiMethod> methods = Utils.getMethodsInScope(canvasConfig);
-        Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencyView =
-                Utils.getDependencyView(canvasConfig, methods, dependencySnapshot);
+        Set<PsiFile> files = Utils.getSourceCodeFiles(canvasConfig);
+        Set<PsiMethod> methods = Utils.getMethodsInScope(canvasConfig, files);
+        Set<Dependency> dependencyView = Utils.getDependencyView(canvasConfig, methods, this.dependencySnapshot);
         return visualizeGraph(methods, dependencyView);
     }
 
     @NotNull
     private Canvas visualizeGraph(
             @NotNull Set<PsiMethod> methods,
-            @NotNull Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencyView) {
+            @NotNull Set<Dependency> dependencyView) {
         Graph graph = new Graph();
         methods.forEach(graph::addNode);
-        dependencyView.forEach(pair -> {
-            PsiMethod caller = pair.getKey();
-            PsiMethod callee = pair.getValue();
-            graph.addNode(caller);
-            graph.addNode(callee);
-            graph.addEdge(caller, callee);
+        dependencyView.forEach(dependency -> {
+            graph.addNode(dependency.getCaller());
+            graph.addNode(dependency.getCallee());
+            graph.addEdge(dependency.getCaller(), dependency.getCallee());
         });
         Utils.layout(graph);
         return renderGraphOnCanvas(graph);

@@ -61,15 +61,30 @@ class Utils {
     }
 
     @NotNull
-    static Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> getDependencySnapshot(
-            @NotNull CanvasConfig canvasConfig) {
-        // create a temporary config to get all methods from the entire project
-        CanvasConfig tempConfig = new CanvasConfig()
+    static Set<Dependency> getDependencySnapshot(
+            @NotNull CanvasConfig canvasConfig,
+            @NotNull Set<Dependency> cachedDependencySnapshot) {
+        // create a temporary config to get all files from the entire project
+        CanvasConfig wholeProjectScopeCanvasConfig = new CanvasConfig()
                 .setProject(canvasConfig.getProject())
                 .setBuildType(CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST);
-        Set<PsiMethod> allMethods = Utils.getMethodsInScope(tempConfig);
-        canvasConfig.getCallGraphToolWindow().resetProgressBar(allMethods.size());
-        return allMethods.stream()
+        Set<PsiFile> allFiles = getSourceCodeFiles(wholeProjectScopeCanvasConfig);
+
+        // separate valid and invalid part of the cached dependency snapshot, to save some redundant parsing
+        Set<Dependency> validDependencySnapshot = cachedDependencySnapshot.stream()
+                .filter(dependency -> dependency.isValid(allFiles))
+                .collect(Collectors.toSet());
+        Set<PsiFile> validFiles = validDependencySnapshot.stream()
+                .flatMap(dependency -> Stream.of(dependency.getCallerFile(), dependency.getCalleeFile()))
+                .collect(Collectors.toSet());
+        Set<PsiFile> invalidFiles = allFiles.stream()
+                .filter(file -> !validFiles.contains(file))
+                .collect(Collectors.toSet());
+        Set<PsiMethod> methods = getMethodsInScope(wholeProjectScopeCanvasConfig, invalidFiles);
+
+        // parse method dependencies
+        canvasConfig.getCallGraphToolWindow().resetProgressBar(methods.size());
+        Set<Dependency> newDependencySnapshot = methods.stream()
                 .flatMap(method -> {
                     canvasConfig.getCallGraphToolWindow().incrementProgressBar();
                     return PsiTreeUtil.findChildrenOfType(method, PsiIdentifier.class)
@@ -79,39 +94,43 @@ class Utils {
                             .flatMap(context -> Arrays.stream(context.getReferences()))
                             .map(PsiReference::resolve)
                             .filter(psiElement -> psiElement instanceof PsiMethod)
-                            .map(psiElement -> new AbstractMap.SimpleEntry<>(method, (PsiMethod) psiElement));
+                            .map(psiElement -> new Dependency(method, (PsiMethod) psiElement));
                 })
+                .collect(Collectors.toSet());
+        return Stream.concat(newDependencySnapshot.stream(), validDependencySnapshot.stream())
                 .collect(Collectors.toSet());
     }
 
     @NotNull
-    static Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> getDependencyView(
+    static Set<Dependency> getDependencyView(
             @NotNull CanvasConfig canvasConfig,
             @NotNull Set<PsiMethod> methods,
-            @NotNull Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencySnapshot) {
+            @NotNull Set<Dependency> dependencySnapshot) {
         switch (canvasConfig.getBuildType()) {
             case WHOLE_PROJECT_WITH_TEST_LIMITED:
             case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
             case MODULE_LIMITED:
             case DIRECTORY_LIMITED:
                 return dependencySnapshot.stream()
-                        .filter(pair -> methods.contains(pair.getKey()) && methods.contains(pair.getValue()))
+                        .filter(dependency ->
+                                methods.contains(dependency.getCaller()) && methods.contains(dependency.getCallee()))
                         .collect(Collectors.toSet());
             case WHOLE_PROJECT_WITH_TEST:
             case WHOLE_PROJECT_WITHOUT_TEST:
             case MODULE:
             case DIRECTORY:
                 return dependencySnapshot.stream()
-                        .filter(pair -> methods.contains(pair.getKey()) || methods.contains(pair.getValue()))
+                        .filter(dependency ->
+                                methods.contains(dependency.getCaller()) || methods.contains(dependency.getCallee()))
                         .collect(Collectors.toSet());
             case UPSTREAM:
                 return getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), true);
             case DOWNSTREAM:
                 return getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), false);
             case UPSTREAM_DOWNSTREAM:
-                Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> upstream =
+                Set<Dependency> upstream =
                         getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), true);
-                Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> downstream =
+                Set<Dependency> downstream =
                         getNestedDependencyView(dependencySnapshot, methods, new HashSet<>(), false);
                 return Stream.concat(upstream.stream(), downstream.stream()).collect(Collectors.toSet());
             default:
@@ -122,7 +141,7 @@ class Utils {
     }
 
     @NotNull
-    static Set<PsiMethod> getMethodsInScope(@NotNull CanvasConfig canvasConfig) {
+    static Set<PsiMethod> getMethodsInScope(@NotNull CanvasConfig canvasConfig, @NotNull Set<PsiFile> files) {
         switch (canvasConfig.getBuildType()) {
             case WHOLE_PROJECT_WITH_TEST_LIMITED:
             case WHOLE_PROJECT_WITHOUT_TEST_LIMITED:
@@ -132,25 +151,7 @@ class Utils {
             case WHOLE_PROJECT_WITHOUT_TEST:
             case MODULE:
             case DIRECTORY:
-                Set<PsiFile> allFiles = getSourceCodeRoots(canvasConfig)
-                        .stream()
-                        .flatMap(contentSourceRoot -> {
-                            List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
-                            ContentIterator contentIterator = child -> {
-                                if (child.isValid() && !child.isDirectory()) {
-                                    String extension = Optional.ofNullable(child.getExtension()).orElse("");
-                                    if (extension.equals("java")) {
-                                        childrenVirtualFiles.add(child);
-                                    }
-                                }
-                                return true;
-                            };
-                            VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
-                            return childrenVirtualFiles.stream()
-                                    .map(file -> PsiManager.getInstance(canvasConfig.getProject()).findFile(file));
-                        })
-                        .collect(Collectors.toSet());
-                return allFiles.stream()
+                return files.stream()
                         .flatMap(psiFile -> Stream.of(((PsiJavaFile) psiFile).getClasses())) // get all classes
                         .flatMap(psiClass -> Stream.of(psiClass.getMethods())) // get all methods
                         .collect(Collectors.toSet());
@@ -491,27 +492,49 @@ class Utils {
     }
 
     @NotNull
-    private static Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> getNestedDependencyView(
-            @NotNull Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> dependencySnapshot,
+    private static Set<Dependency> getNestedDependencyView(
+            @NotNull Set<Dependency> dependencySnapshot,
             @NotNull Set<PsiMethod> methods,
             @NotNull Set<PsiMethod> seenMethods,
             boolean isUpstream) {
         if (methods.isEmpty()) {
             return Collections.emptySet();
         }
-        Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> directPairs = dependencySnapshot.stream()
-                .filter(pair -> {
-                    PsiMethod self = isUpstream ? pair.getValue() : pair.getKey();
+        Set<Dependency> directPairs = dependencySnapshot.stream()
+                .filter(dependency -> {
+                    PsiMethod self = isUpstream ? dependency.getCallee() : dependency.getCaller();
                     return methods.contains(self);
                 })
                 .collect(Collectors.toSet());
         Set<PsiMethod> nextBatchMethods = directPairs.stream()
-                .map(pair -> isUpstream ? pair.getKey() : pair.getValue())
+                .map(dependency -> isUpstream ? dependency.getCaller() : dependency.getCallee())
                 .filter(method -> !seenMethods.contains(method))
                 .collect(Collectors.toSet());
         seenMethods.addAll(nextBatchMethods);
-        Set<AbstractMap.SimpleEntry<PsiMethod, PsiMethod>> nestedPairs =
+        Set<Dependency> nestedPairs =
                 getNestedDependencyView(dependencySnapshot, nextBatchMethods, seenMethods, isUpstream);
         return Stream.concat(directPairs.stream(), nestedPairs.stream()).collect(Collectors.toSet());
+    }
+
+    @NotNull
+    static Set<PsiFile> getSourceCodeFiles(@NotNull CanvasConfig canvasConfig) {
+        return getSourceCodeRoots(canvasConfig)
+                .stream()
+                .flatMap(contentSourceRoot -> {
+                    List<VirtualFile> childrenVirtualFiles = new ArrayList<>();
+                    ContentIterator contentIterator = child -> {
+                        if (child.isValid() && !child.isDirectory()) {
+                            String extension = Optional.ofNullable(child.getExtension()).orElse("");
+                            if (extension.equals("java")) {
+                                childrenVirtualFiles.add(child);
+                            }
+                        }
+                        return true;
+                    };
+                    VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, contentIterator);
+                    return childrenVirtualFiles.stream()
+                            .map(file -> PsiManager.getInstance(canvasConfig.getProject()).findFile(file));
+                })
+                .collect(Collectors.toSet());
     }
 }
