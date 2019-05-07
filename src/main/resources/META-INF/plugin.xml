@@ -27,7 +27,7 @@
           feature requests and bug reports
         </li>
         <li>
-          If you love this plugin, please consider
+          Love this plugin? Please consider
           <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=chentai.kao%40gmail.com&item_name=Support+development+of+the+Call+Graph+plugin&currency_code=USD&source=url">donation</a>
           to support the developer.
         </li>
@@ -39,18 +39,31 @@
     <change-notes><![CDATA[
       <p>0.1:</p>
       <ul>
-        <li>Initial release</li>
-        <li>Support <code>Java</code></li>
         <li>
-          Support building call graph from functions of
-          <b>the entire project</b>, <b>a single module</b>, or <b>a single folder path</b>
+          Initial release.
         </li>
         <li>
-          Support two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b>. You can also tweak the grid size yourself
+          Support <code>Java</code>.
         </li>
-        <li>Support selecting multiple nodes to visualize upstream/downstream calls</li>
-        <li>Support building call graph by right-clicking any function in the source code</li>
-        <li>Support jumping to function definition in source code from any function node in the graph</li>
+        <li>
+          Support building call graph from functions of <b>the entire project</b>, <b>a single module</b>, or <b>a single folder path</b>.
+        </li>
+        <li>
+          Support two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b>.
+          You can also tweak the grid size yourself.
+        </li>
+        <li>
+          Support selecting <b>a single node</b> or <b>multiple nodes</b> to visualize upstream/downstream calls.
+        </li>
+        <li>
+          Support <b>code to graph</b>: build call graph by right-clicking any function in the source code.
+        </li>
+        <li>
+          Support <b>graph to code</b>: jump to function definition in the source code from any node in the graph.
+        </li>
+        <li>
+          Support <b>function name search</b>: highlight nodes in the graph whose function name matches your search query
+        </li>
       </ul>
     ]]></change-notes>
 

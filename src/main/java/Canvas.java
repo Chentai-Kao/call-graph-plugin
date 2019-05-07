@@ -31,6 +31,7 @@ class Canvas extends JPanel {
     private final Color unHighlightedColor = new JBColor(new Color(0xC6C8CA), new Color(0x585A5C));
     private final Color neutralColor = new JBColor(new Color(0x626466), new Color(0x949698));
     private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x589DEF));
+    private final Color highlightedBackgroundColor = new JBColor(new Color(0xFFFF00), new Color(0xFFFF00));
     private final Color upstreamColor = new JBColor(new Color(0xFBBC05), new Color(0xBE9117));
     private final Color downstreamColor = new JBColor(new Color(0x34A853), new Color(0x538863));
 
@@ -89,51 +90,27 @@ class Canvas extends JPanel {
                         !isNodeHighlighted(node) && !upstreamNodes.contains(node) && !downstreamNodes.contains(node)
                 )
                 .collect(Collectors.toSet());
-        unHighlightedNodes.forEach(node -> {
-            List<AbstractMap.SimpleEntry<String, Color>> labels =
-                    createNodeLabels(node, this.neutralColor, false);
-            drawNodeLabels(graphics2D, node, labels, false);
-        });
+        unHighlightedNodes.forEach(node -> drawNodeLabels(graphics2D, node, this.neutralColor, false));
 
         // draw un-highlighted nodes (upstream/downstream nodes are excluded)
         this.nodeShapesMap = new HashMap<>();
         unHighlightedNodes.stream()
                 .filter(node -> !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
-                .forEach(node -> {
-                    Shape nodeShape = drawNode(graphics2D, node, this.unHighlightedColor);
-                    this.nodeShapesMap.put(nodeShape, node);
-                });
+                .forEach(node -> drawNode(graphics2D, node, this.unHighlightedColor));
 
         // draw upstream/downstream label and nodes
-        upstreamNodes.forEach(node -> {
-            List<AbstractMap.SimpleEntry<String, Color>> labels = createNodeLabels(node, this.upstreamColor, false);
-            drawNodeLabels(graphics2D, node, labels, false);
-        });
-        downstreamNodes.forEach(node -> {
-            List<AbstractMap.SimpleEntry<String, Color>> labels = createNodeLabels(node, this.downstreamColor, false);
-            drawNodeLabels(graphics2D, node, labels, false);
-        });
-        upstreamNodes.forEach(node -> {
-            Shape nodeShape = drawNode(graphics2D, node, this.upstreamColor);
-            this.nodeShapesMap.put(nodeShape, node);
-        });
-        downstreamNodes.forEach(node -> {
-            Shape nodeShape = drawNode(graphics2D, node, this.downstreamColor);
-            this.nodeShapesMap.put(nodeShape, node);
-        });
+        upstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, this.upstreamColor, false));
+        downstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, this.downstreamColor, false));
+        upstreamNodes.forEach(node -> drawNode(graphics2D, node, this.upstreamColor));
+        downstreamNodes.forEach(node -> drawNode(graphics2D, node, this.downstreamColor));
 
         // draw highlighted node and label
         this.graph.getNodes()
                 .stream()
                 .filter(this::isNodeHighlighted)
                 .forEach(node -> {
-                    // draw node
-                    Shape nodeShape = drawNode(graphics2D, node, this.highlightedColor);
-                    this.nodeShapesMap.put(nodeShape, node);
-                    // draw labels
-                    List<AbstractMap.SimpleEntry<String, Color>> labels =
-                            createNodeLabels(node, this.highlightedColor, true);
-                    drawNodeLabels(graphics2D, node, labels, true);
+                    drawNode(graphics2D, node, this.highlightedColor);
+                    drawNodeLabels(graphics2D, node, this.highlightedColor, true);
                 });
     }
 
@@ -245,10 +222,10 @@ class Canvas extends JPanel {
         drawLineArrow(graphics2D, sourceNodeCenter, targetNodeCenter, color);
     }
 
-    @NotNull
-    private Shape drawNode(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull Color color) {
+    private void drawNode(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull Color color) {
         Point2D nodeCenter = toCameraView(node.getPoint());
-        return drawCircle(graphics2D, nodeCenter, this.nodeRadius, color);
+        Shape nodeShape = drawCircle(graphics2D, nodeCenter, this.nodeRadius, color);
+        this.nodeShapesMap.put(nodeShape, node);
     }
 
     @NotNull
@@ -277,11 +254,10 @@ class Canvas extends JPanel {
     private void drawNodeLabels(
             @NotNull Graphics2D graphics2D,
             @NotNull Node node,
-            @NotNull List<AbstractMap.SimpleEntry<String, Color>> labels,
-            boolean showBorder) {
-        if (labels.isEmpty()) {
-            return;
-        }
+            @NotNull Color labelColor,
+            boolean isNodeHovered) {
+        // create labels
+        List<AbstractMap.SimpleEntry<String, Color>> labels = createNodeLabels(node, labelColor, isNodeHovered);
         // fill background to overall bounding box
         int padding = 2; // 1 px padding in the text bounding box
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
@@ -309,15 +285,17 @@ class Canvas extends JPanel {
                 (float) boundingBoxUpperRight.getX(),
                 (float) boundingBoxLowerLeft.getY()
         );
-        graphics2D.setColor(this.backgroundColor);
+        Color textBackgroundColor = this.callGraphToolWindow.isQueried(node.getMethod().getName()) ?
+                this.highlightedBackgroundColor : this.backgroundColor;
+        graphics2D.setColor(textBackgroundColor);
         graphics2D.fillRect(
-                (int) boundingBoxUpperLeft.getX(),
-                (int) boundingBoxUpperLeft.getY(),
-                (int) (boundingBoxUpperRight.getX() - boundingBoxUpperLeft.getX()),
-                (int) (boundingBoxLowerLeft.getY() - boundingBoxUpperLeft.getY())
+                (int) boundingBoxUpperLeft.getX() + 1,
+                (int) boundingBoxUpperLeft.getY() + 1,
+                (int) (boundingBoxUpperRight.getX() - boundingBoxUpperLeft.getX() - 1),
+                (int) (boundingBoxLowerLeft.getY() - boundingBoxUpperLeft.getY() - 1)
         );
-        // draw border
-        if (showBorder) {
+        // draw border if the node is hovered
+        if (isNodeHovered) {
             drawLine(graphics2D, boundingBoxLowerLeft, boundingBoxUpperLeft, this.unHighlightedColor);
             drawLine(graphics2D, boundingBoxUpperLeft, boundingBoxUpperRight, this.unHighlightedColor);
             drawLine(graphics2D, boundingBoxUpperRight, boundingBoxLowerRight, this.unHighlightedColor);

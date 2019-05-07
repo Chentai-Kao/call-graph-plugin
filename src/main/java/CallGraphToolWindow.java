@@ -4,6 +4,8 @@ import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.geom.Point2D;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -40,6 +42,7 @@ public class CallGraphToolWindow {
     private JComboBox<String> viewPackageNameComboBox;
     private JComboBox<String> viewFilePathComboBox;
     private JComboBox<String> nodeSelectionComboBox;
+    private JTextField searchTextField;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
@@ -57,6 +60,22 @@ public class CallGraphToolWindow {
                 Arrays.asList(ComboBoxOptions.NODE_SELECTION_SINGLE, ComboBoxOptions.NODE_SELECTION_MULTIPLE);
         nodeSelectionComboBoxOptions.forEach(option -> this.nodeSelectionComboBox.addItem(option.getText()));
         this.nodeSelectionComboBox.setSelectedItem(ComboBoxOptions.NODE_SELECTION_SINGLE.getText());
+
+        // search field
+        this.searchTextField.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent keyEvent) {
+            }
+
+            @Override
+            public void keyPressed(KeyEvent keyEvent) {
+            }
+
+            @Override
+            public void keyReleased(KeyEvent keyEvent) {
+                canvas.repaint();
+            }
+        });
 
         // click handlers for buttons
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
@@ -136,6 +155,11 @@ public class CallGraphToolWindow {
     boolean isRenderFunctionFilePath(boolean isNodeHovered) {
         ComboBoxOptions option = getSelectedComboBoxOption(this.viewFilePathComboBox);
         return option == ComboBoxOptions.VIEW_ALWAYS || (option == ComboBoxOptions.VIEW_HOVERED && isNodeHovered);
+    }
+
+    boolean isQueried(@NotNull String text) {
+        String searchQuery = this.searchTextField.getText().toLowerCase();
+        return !searchQuery.isEmpty() && text.toLowerCase().contains(searchQuery);
     }
 
     void run(@NotNull CanvasConfig.BuildType buildType) {
@@ -275,10 +299,10 @@ public class CallGraphToolWindow {
         this.increaseYGridButton.setEnabled(false);
         this.decreaseYGridButton.setEnabled(false);
         this.viewSourceCodeButton.setEnabled(false);
-        // upstream/downstream buttons
         this.showOnlyUpstreamButton.setEnabled(false);
         this.showOnlyDownstreamButton.setEnabled(false);
         this.showOnlyUpstreamDownstreamButton.setEnabled(false);
+        this.searchTextField.setEnabled(false);
         // progress bar
         this.loadingProgressBar.setVisible(true);
         // clear the canvas panel, ready for new graph
@@ -304,6 +328,7 @@ public class CallGraphToolWindow {
         this.decreaseXGridButton.setEnabled(true);
         this.increaseYGridButton.setEnabled(true);
         this.decreaseYGridButton.setEnabled(true);
+        this.searchTextField.setEnabled(true);
         enableFocusedMethodButtons();
     }
 
