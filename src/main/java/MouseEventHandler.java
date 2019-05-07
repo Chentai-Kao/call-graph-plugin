@@ -14,7 +14,11 @@ class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWhee
 
     public void mouseClicked(@NotNull MouseEvent event) {
         Node node = this.canvas.getNodeUnderPoint(event.getPoint());
-        this.canvas.setClickedNode(node);
+        if (node == null) {
+            this.canvas.clearClickedNodes();
+        } else {
+            this.canvas.toggleClickedNode(node);
+        }
     }
 
     public void mousePressed(@NotNull MouseEvent event) {

@@ -1,7 +1,9 @@
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+
+import java.util.HashSet;
+import java.util.Set;
 
 class CanvasConfig {
     public enum BuildType {
@@ -35,7 +37,7 @@ class CanvasConfig {
     private String selectedModuleName;
     private String selectedDirectoryPath;
     private Project project;
-    private PsiMethod focusedMethod;
+    private Set<PsiMethod> focusedMethods = new HashSet<>();
     private CallGraphToolWindow callGraphToolWindow;
 
     @NotNull
@@ -51,7 +53,7 @@ class CanvasConfig {
 
     @NotNull
     Project getProject() {
-        return project;
+        return this.project;
     }
 
     @NotNull
@@ -62,7 +64,7 @@ class CanvasConfig {
 
     @NotNull
     String getSelectedDirectoryPath() {
-        return selectedDirectoryPath;
+        return this.selectedDirectoryPath;
     }
 
     @NotNull
@@ -71,20 +73,20 @@ class CanvasConfig {
         return this;
     }
 
-    @Nullable
-    PsiMethod getFocusedMethod() {
-        return focusedMethod;
+    @NotNull
+    Set<PsiMethod> getFocusedMethods() {
+        return this.focusedMethods;
     }
 
     @NotNull
-    CanvasConfig setFocusedMethod(@Nullable PsiMethod focusedMethod) {
-        this.focusedMethod = focusedMethod;
+    CanvasConfig setFocusedMethods(@NotNull Set<PsiMethod> focusedMethods) {
+        this.focusedMethods = focusedMethods;
         return this;
     }
 
     @NotNull
     BuildType getBuildType() {
-        return buildType;
+        return this.buildType;
     }
 
     @NotNull
@@ -95,7 +97,7 @@ class CanvasConfig {
 
     @NotNull
     CallGraphToolWindow getCallGraphToolWindow() {
-        return callGraphToolWindow;
+        return this.callGraphToolWindow;
     }
 
     @NotNull

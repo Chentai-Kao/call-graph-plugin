@@ -27,14 +27,7 @@ class CanvasBuilder {
         Set<PsiMethod> methods = Utils.getMethodsInScope(canvasConfig, files);
         Set<Dependency> dependencyView = Utils.getDependencyView(canvasConfig, methods, this.dependencySnapshot);
         Graph graph = buildGraph(methods, dependencyView);
-        Canvas canvas = renderGraphOnCanvas(canvasConfig.getCallGraphToolWindow(), graph);
-
-        // highlight selected node if the graph is built on a focused method upstream/downstream
-        if (canvasConfig.getFocusedMethod() != null) {
-            Node clickedNode = graph.getNodeByMethod(canvasConfig.getFocusedMethod());
-            canvas.setClickedNode(clickedNode);
-        }
-        return canvas;
+        return renderGraphOnCanvas(canvasConfig.getCallGraphToolWindow(), graph);
     }
 
     @NotNull

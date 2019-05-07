@@ -2,11 +2,14 @@ import com.intellij.ide.util.EditorHelper;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.geom.Point2D;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("WeakerAccess")
 public class CallGraphToolWindow {
@@ -36,23 +39,33 @@ public class CallGraphToolWindow {
     private JButton viewSourceCodeButton;
     private JComboBox<String> viewPackageNameComboBox;
     private JComboBox<String> viewFilePathComboBox;
+    private JComboBox<String> nodeSelectionComboBox;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
-    private PsiMethod focusedMethod;
+    private final Set<PsiMethod> focusedMethods = new HashSet<>();
 
     public CallGraphToolWindow() {
         // drop-down options
-        Arrays.stream(ViewOptions.values()).forEach(option -> this.viewPackageNameComboBox.addItem(option.getText()));
-        this.viewPackageNameComboBox.setSelectedItem(ViewOptions.HOVERED.getText());
-        Arrays.stream(ViewOptions.values()).forEach(option -> this.viewFilePathComboBox.addItem(option.getText()));
-        this.viewFilePathComboBox.setSelectedItem(ViewOptions.NEVER.getText());
+        List<ComboBoxOptions> viewComboBoxOptions =
+                Arrays.asList(ComboBoxOptions.VIEW_ALWAYS, ComboBoxOptions.VIEW_HOVERED, ComboBoxOptions.VIEW_NEVER);
+        viewComboBoxOptions.forEach(option -> this.viewPackageNameComboBox.addItem(option.getText()));
+        this.viewPackageNameComboBox.setSelectedItem(ComboBoxOptions.VIEW_HOVERED.getText());
+        viewComboBoxOptions.forEach(option -> this.viewFilePathComboBox.addItem(option.getText()));
+        this.viewFilePathComboBox.setSelectedItem(ComboBoxOptions.VIEW_NEVER.getText());
+        List<ComboBoxOptions> nodeSelectionComboBoxOptions =
+                Arrays.asList(ComboBoxOptions.NODE_SELECTION_SINGLE, ComboBoxOptions.NODE_SELECTION_MULTIPLE);
+        nodeSelectionComboBoxOptions.forEach(option -> this.nodeSelectionComboBox.addItem(option.getText()));
+        this.nodeSelectionComboBox.setSelectedItem(ComboBoxOptions.NODE_SELECTION_SINGLE.getText());
 
         // click handlers for buttons
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
         this.moduleScopeButton.addActionListener(e -> moduleScopeButtonHandler());
         this.directoryScopeButton.addActionListener(e -> directoryScopeButtonHandler());
-        this.runButton.addActionListener(e -> run(getSelectedBuildType()));
+        this.runButton.addActionListener(e -> {
+            this.focusedMethods.clear();
+            run(getSelectedBuildType());
+        });
         this.viewPackageNameComboBox.addActionListener(e -> this.canvas.repaint());
         this.viewFilePathComboBox.addActionListener(e -> this.canvas.repaint());
         this.showOnlyUpstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM));
@@ -73,19 +86,31 @@ public class CallGraphToolWindow {
         return this.callGraphToolWindowContent;
     }
 
+    boolean isFocusedMethod(@NotNull PsiMethod method) {
+        return this.focusedMethods.contains(method);
+    }
+
     @NotNull
-    CallGraphToolWindow setFocusedMethod(@NotNull PsiMethod focusedMethod) {
-        this.focusedMethod = focusedMethod;
+    CallGraphToolWindow toggleFocusedMethod(@NotNull PsiMethod method) {
+        if (this.focusedMethods.contains(method)) {
+            // clicked on a selected node
+            this.focusedMethods.remove(method);
+        } else {
+            // clicked on an un-selected node
+            if (getSelectedComboBoxOption(this.nodeSelectionComboBox) == ComboBoxOptions.NODE_SELECTION_SINGLE) {
+                this.focusedMethods.clear();
+            }
+            this.focusedMethods.add(method);
+        }
+        enableFocusedMethodButtons();
         return this;
     }
 
-    void setClickedNode(@Nullable Node node) {
-        this.focusedMethod = node == null ? null : node.getMethod();
-        boolean isEnabled = node != null;
-        this.showOnlyUpstreamButton.setEnabled(isEnabled);
-        this.showOnlyDownstreamButton.setEnabled(isEnabled);
-        this.showOnlyUpstreamDownstreamButton.setEnabled(isEnabled);
-        this.viewSourceCodeButton.setEnabled(isEnabled);
+    @NotNull
+    CallGraphToolWindow clearFocusedMethods() {
+        this.focusedMethods.clear();
+        enableFocusedMethodButtons();
+        return this;
     }
 
     void resetProgressBar(int maximum) {
@@ -104,20 +129,13 @@ public class CallGraphToolWindow {
     }
 
     boolean isRenderFunctionPackageName(boolean isNodeHovered) {
-        return isViewOptionActive(this.viewPackageNameComboBox, isNodeHovered);
+        ComboBoxOptions option = getSelectedComboBoxOption(this.viewPackageNameComboBox);
+        return option == ComboBoxOptions.VIEW_ALWAYS || (option == ComboBoxOptions.VIEW_HOVERED && isNodeHovered);
     }
 
     boolean isRenderFunctionFilePath(boolean isNodeHovered) {
-        return isViewOptionActive(this.viewFilePathComboBox, isNodeHovered);
-    }
-
-    boolean isViewOptionActive(@NotNull JComboBox<String> comboBox, boolean isNodeHovered) {
-        String selectedText = (String) comboBox.getSelectedItem();
-        if (selectedText == null) {
-            return false;
-        }
-        ViewOptions option = ViewOptions.findByText(selectedText);
-        return option == ViewOptions.ALWAYS || (option == ViewOptions.HOVERED && isNodeHovered);
+        ComboBoxOptions option = getSelectedComboBoxOption(this.viewFilePathComboBox);
+        return option == ComboBoxOptions.VIEW_ALWAYS || (option == ComboBoxOptions.VIEW_HOVERED && isNodeHovered);
     }
 
     void run(@NotNull CanvasConfig.BuildType buildType) {
@@ -131,7 +149,7 @@ public class CallGraphToolWindow {
                         .setBuildType(buildType)
                         .setSelectedModuleName(maybeModuleName == null ? "" : maybeModuleName)
                         .setSelectedDirectoryPath(this.directoryScopeTextField.getText())
-                        .setFocusedMethod(this.focusedMethod)
+                        .setFocusedMethods(this.focusedMethods)
                         .setCallGraphToolWindow(this);
                 // start building graph
                 setupUiBeforeRun(canvasConfig);
@@ -139,6 +157,15 @@ public class CallGraphToolWindow {
                 setupUiAfterRun();
             });
         }
+    }
+
+    @NotNull
+    private ComboBoxOptions getSelectedComboBoxOption(@NotNull JComboBox<String> comboBox) {
+        String selectedText = (String) comboBox.getSelectedItem();
+        if (selectedText == null) {
+            return ComboBoxOptions.DUMMY;
+        }
+        return ComboBoxOptions.findByText(selectedText);
     }
 
     private void disableAllSecondaryOptions() {
@@ -198,7 +225,7 @@ public class CallGraphToolWindow {
     }
 
     private void viewSourceCodeHandler() {
-        EditorHelper.openInEditor(this.focusedMethod);
+        this.focusedMethods.forEach(EditorHelper::openInEditor);
     }
 
     private void setupUiBeforeRun(@NotNull CanvasConfig canvasConfig) {
@@ -229,14 +256,18 @@ public class CallGraphToolWindow {
             case UPSTREAM:
             case DOWNSTREAM:
             case UPSTREAM_DOWNSTREAM:
+                String functionNames = this.focusedMethods.stream()
+                        .map(PsiMethod::getName)
+                        .collect(Collectors.joining(", "));
                 this.buildTypeLabel.setText(String.format("<html>%s of function <b>%s</b></html>",
-                        buildTypeText, this.focusedMethod.getName()));
+                        buildTypeText, functionNames));
             default:
                 break;
         }
         // disable some checkboxes and buttons
         this.viewPackageNameComboBox.setEnabled(false);
         this.viewFilePathComboBox.setEnabled(false);
+        this.nodeSelectionComboBox.setEnabled(false);
         this.fitGraphToBestRatioButton.setEnabled(false);
         this.fitGraphToViewButton.setEnabled(false);
         this.increaseXGridButton.setEnabled(false);
@@ -266,12 +297,14 @@ public class CallGraphToolWindow {
         // enable some checkboxes and buttons
         this.viewPackageNameComboBox.setEnabled(true);
         this.viewFilePathComboBox.setEnabled(true);
+        this.nodeSelectionComboBox.setEnabled(true);
         this.fitGraphToBestRatioButton.setEnabled(true);
         this.fitGraphToViewButton.setEnabled(true);
         this.increaseXGridButton.setEnabled(true);
         this.decreaseXGridButton.setEnabled(true);
         this.increaseYGridButton.setEnabled(true);
         this.decreaseYGridButton.setEnabled(true);
+        enableFocusedMethodButtons();
     }
 
     @NotNull
@@ -292,5 +325,13 @@ public class CallGraphToolWindow {
             return isLimitedScope ? CanvasConfig.BuildType.DIRECTORY_LIMITED : CanvasConfig.BuildType.DIRECTORY;
         }
         return CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST;
+    }
+
+    private void enableFocusedMethodButtons() {
+        boolean isEnabled = !this.focusedMethods.isEmpty();
+        this.showOnlyUpstreamButton.setEnabled(isEnabled);
+        this.showOnlyDownstreamButton.setEnabled(isEnabled);
+        this.showOnlyUpstreamDownstreamButton.setEnabled(isEnabled);
+        this.viewSourceCodeButton.setEnabled(isEnabled);
     }
 }

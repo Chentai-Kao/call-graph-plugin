@@ -158,7 +158,7 @@ class Utils {
             case UPSTREAM:
             case DOWNSTREAM:
             case UPSTREAM_DOWNSTREAM:
-                return Collections.singleton(canvasConfig.getFocusedMethod());
+                return canvasConfig.getFocusedMethods();
             default:
                 break;
         }
@@ -280,7 +280,8 @@ class Utils {
                     .getToolWindow("Call Graph")
                     .activate(() -> ServiceManager.getService(project, CallGraphToolWindowProjectService.class)
                             .getCallGraphToolWindow()
-                            .setFocusedMethod(focusedMethod)
+                            .clearFocusedMethods()
+                            .toggleFocusedMethod(focusedMethod)
                             .run(buildType));
         }
     }

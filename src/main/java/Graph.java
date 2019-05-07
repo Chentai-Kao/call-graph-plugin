@@ -48,12 +48,6 @@ class Graph {
     }
 
     @NotNull
-    Node getNodeByMethod(@NotNull PsiMethod method) {
-        String nodeId = getNodeHash(method);
-        return this.nodes.get(nodeId);
-    }
-
-    @NotNull
     Set<Graph> getConnectedComponents() {
         if (this.connectedComponents == null) {
             Set<Node> visitedNodes = new HashSet<>();

@@ -19,7 +19,6 @@ class Canvas extends JPanel {
     private final CallGraphToolWindow callGraphToolWindow;
     private Map<Shape, Node> nodeShapesMap;
     private Node hoveredNode;
-    private Node clickedNode;
     private final Point2D defaultCameraOrigin = new Point2D.Float(0, 0);
     private final float defaultZoomRatio = 1.0f;
     private Point2D cameraOrigin = defaultCameraOrigin;
@@ -155,15 +154,14 @@ class Canvas extends JPanel {
         return this;
     }
 
-    @SuppressWarnings("UnusedReturnValue")
-    @NotNull
-    Canvas setClickedNode(@Nullable Node node) {
-        if (this.clickedNode != node) {
-            this.clickedNode = node;
-            repaint();
-        }
-        this.callGraphToolWindow.setClickedNode(node);
-        return this;
+    void toggleClickedNode(@NotNull Node node) {
+        this.callGraphToolWindow.toggleFocusedMethod(node.getMethod());
+        repaint();
+    }
+
+    void clearClickedNodes() {
+        this.callGraphToolWindow.clearFocusedMethods();
+        repaint();
     }
 
     @NotNull
@@ -232,7 +230,7 @@ class Canvas extends JPanel {
     }
 
     private boolean isNodeHighlighted(@NotNull Node node) {
-        return this.hoveredNode == node || this.clickedNode == node;
+        return this.hoveredNode == node || this.callGraphToolWindow.isFocusedMethod(node.getMethod());
     }
 
     private void drawSelfLoopEdge(@NotNull Graphics2D graphics2D, @NotNull Edge edge, boolean isHighlighted) {
@@ -261,7 +259,7 @@ class Canvas extends JPanel {
         // draw labels in top-down order
         List<AbstractMap.SimpleEntry<String, Color>> labels = new ArrayList<>();
         // function signature
-        String signature = Utils.getMethodSignature(node.getMethod());
+        String signature = isNodeHovered ? Utils.getMethodSignature(node.getMethod()) : node.getMethod().getName();
         labels.add(new AbstractMap.SimpleEntry<>(signature, signatureColor));
         // package name
         if (this.callGraphToolWindow.isRenderFunctionPackageName(isNodeHovered)) {
