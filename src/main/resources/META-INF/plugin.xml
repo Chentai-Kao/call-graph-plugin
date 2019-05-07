@@ -4,7 +4,7 @@
     <name>Call Graph</name>
 
     <!-- Plugin version -->
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
@@ -48,6 +48,7 @@
         <li>
           Support two graph layouts: <b>fit to best ratio</b> and <b>fit to viewport</b>. You can also tweak the grid size yourself
         </li>
+        <li>Support selecting multiple nodes to visualize upstream/downstream calls</li>
         <li>Support building call graph by right-clicking any function in the source code</li>
         <li>Support jumping to function definition in source code from any function node in the graph</li>
       </ul>
