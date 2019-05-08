@@ -4,7 +4,7 @@
     <name>Call Graph</name>
 
     <!-- Plugin version -->
-    <version>0.1.6</version>
+    <version>0.1.7</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
@@ -62,7 +62,7 @@
           Support <b>graph to code</b>: jump to function definition in the source code from any node in the graph.
         </li>
         <li>
-          Support <b>function name search</b>: highlight nodes in the graph whose function name matches your search query
+          Support <b>function name search</b>: highlight nodes in the graph whose function name matches your search query.
         </li>
         <li>
           Support color-coding nodes by <b>function access level (public, protected, package local, private)</b> and <b>class name</b>.
