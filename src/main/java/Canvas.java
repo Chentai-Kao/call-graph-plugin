@@ -1,5 +1,6 @@
 import com.google.common.collect.ImmutableMap;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.PsiModifierList;
 import org.jetbrains.annotations.NotNull;
@@ -21,6 +22,8 @@ class Canvas extends JPanel {
     private JPanel canvasPanel;
     private final CallGraphToolWindow callGraphToolWindow;
     private Map<Shape, Node> nodeShapesMap = Collections.emptyMap();
+    private Collection<Node> visibleNodes;
+    private Collection<Edge> visibleEdges;
     private Node hoveredNode;
     private final Point2D defaultCameraOrigin = new Point2D.Float(0, 0);
     private final float defaultZoomRatio = 1.0f;
@@ -41,6 +44,8 @@ class Canvas extends JPanel {
         super();
         this.callGraphToolWindow = callGraphToolWindow;
         this.graph = graph;
+        this.visibleNodes = graph.getNodes();
+        this.visibleEdges = graph.getEdges();
     }
 
     @Override
@@ -57,21 +62,18 @@ class Canvas extends JPanel {
         graphics2D.fillRect(0, 0, this.getWidth(), this.getHeight());
 
         // draw un-highlighted and highlighted self loops
-        this.graph.getEdges()
-                .stream()
+        this.visibleEdges.stream()
                 .filter(edge -> edge.getSourceNode() == edge.getTargetNode())
                 .forEach(edge -> drawSelfLoopEdge(graphics2D, edge, isNodeHighlighted(edge.getSourceNode())));
 
         // draw un-highlighted edges
-        this.graph.getEdges()
-                .stream()
+        this.visibleEdges.stream()
                 .filter(edge -> edge.getSourceNode() != edge.getTargetNode() &&
                         !isNodeHighlighted(edge.getSourceNode()) && !isNodeHighlighted(edge.getTargetNode()))
                 .forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.unHighlightedColor));
 
         // draw upstream/downstream edges
-        Set<Node> highlightedNodes = this.graph.getNodes()
-                .stream()
+        Set<Node> highlightedNodes = this.visibleNodes.stream()
                 .filter(this::isNodeHighlighted)
                 .collect(Collectors.toSet());
         Set<Edge> upstreamEdges = highlightedNodes.stream()
@@ -86,8 +88,7 @@ class Canvas extends JPanel {
         // draw un-highlighted labels
         Set<Node> upstreamNodes = upstreamEdges.stream().map(Edge::getSourceNode).collect(Collectors.toSet());
         Set<Node> downstreamNodes = downstreamEdges.stream().map(Edge::getTargetNode).collect(Collectors.toSet());
-        Set<Node> unHighlightedNodes = this.graph.getNodes()
-                .stream()
+        Set<Node> unHighlightedNodes = this.visibleNodes.stream()
                 .filter(node ->
                         !isNodeHighlighted(node) && !upstreamNodes.contains(node) && !downstreamNodes.contains(node)
                 )
@@ -107,8 +108,7 @@ class Canvas extends JPanel {
         downstreamNodes.forEach(node -> drawNode(graphics2D, node, Colors.downstreamColor));
 
         // draw highlighted node and label
-        this.graph.getNodes()
-                .stream()
+        this.visibleNodes.stream()
                 .filter(this::isNodeHighlighted)
                 .forEach(node -> {
                     drawNode(graphics2D, node, Colors.highlightedColor);
@@ -197,6 +197,31 @@ class Canvas extends JPanel {
 
     int getNodesCount() {
         return this.graph.getNodes().size();
+    }
+
+    void filterAccessChangeHandler() {
+        this.visibleNodes = this.graph.getNodes()
+                .stream()
+                .filter(node -> {
+                    PsiMethod method = node.getMethod();
+                    if (Utils.isPublic(method)) {
+                        return this.callGraphToolWindow.isFilterAccessPublicChecked();
+                    } else if (Utils.isProtected(method)) {
+                        return this.callGraphToolWindow.isFilterAccessProtectedChecked();
+                    } else if (Utils.isPackageLocal(method)) {
+                        return this.callGraphToolWindow.isFilterAccessPackageLocalChecked();
+                    } else if (Utils.isPrivate(method)) {
+                        return this.callGraphToolWindow.isFilterAccessPrivateChecked();
+                    }
+                    return true;
+                })
+                .collect(Collectors.toSet());
+        this.visibleEdges = this.graph.getEdges()
+                .stream()
+                .filter(edge -> this.visibleNodes.contains(edge.getSourceNode()) &&
+                        this.visibleNodes.contains(edge.getTargetNode()))
+                .collect(Collectors.toSet());
+        repaint();
     }
 
     @NotNull

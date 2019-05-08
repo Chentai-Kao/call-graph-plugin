@@ -44,10 +44,20 @@ public class CallGraphToolWindow {
     private JComboBox<String> nodeSelectionComboBox;
     private JTextField searchTextField;
     private JComboBox<String> nodeColorComboBox;
+    private JCheckBox filterAccessPublicCheckbox;
+    private JCheckBox filterAccessProtectedCheckbox;
+    private JCheckBox filterAccessPackageLocalCheckbox;
+    private JCheckBox filterAccessPrivateCheckbox;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
     private final Set<PsiMethod> focusedMethods = new HashSet<>();
+    private final List<JCheckBox> filterAccessCheckboxes = Arrays.asList(
+            this.filterAccessPublicCheckbox,
+            this.filterAccessProtectedCheckbox,
+            this.filterAccessPackageLocalCheckbox,
+            this.filterAccessPrivateCheckbox
+    );
 
     public CallGraphToolWindow() {
         // drop-down options
@@ -89,6 +99,8 @@ public class CallGraphToolWindow {
                 canvas.repaint();
             }
         });
+        this.filterAccessCheckboxes.forEach(checkbox ->
+                checkbox.addActionListener(e -> this.canvas.filterAccessChangeHandler()));
 
         // click handlers for buttons
         this.projectScopeButton.addActionListener(e -> projectScopeButtonHandler());
@@ -182,6 +194,22 @@ public class CallGraphToolWindow {
 
     boolean isNodeColorByClassName() {
         return getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_CLASS;
+    }
+
+    boolean isFilterAccessPublicChecked() {
+        return this.filterAccessPublicCheckbox.isSelected();
+    }
+
+    boolean isFilterAccessProtectedChecked() {
+        return this.filterAccessProtectedCheckbox.isSelected();
+    }
+
+    boolean isFilterAccessPackageLocalChecked() {
+        return this.filterAccessPackageLocalCheckbox.isSelected();
+    }
+
+    boolean isFilterAccessPrivateChecked() {
+        return this.filterAccessPrivateCheckbox.isSelected();
     }
 
     void run(@NotNull CanvasConfig.BuildType buildType) {
@@ -311,21 +339,28 @@ public class CallGraphToolWindow {
                 break;
         }
         // disable some checkboxes and buttons
-        this.viewPackageNameComboBox.setEnabled(false);
-        this.viewFilePathComboBox.setEnabled(false);
-        this.nodeSelectionComboBox.setEnabled(false);
-        this.nodeColorComboBox.setEnabled(false);
-        this.fitGraphToBestRatioButton.setEnabled(false);
-        this.fitGraphToViewButton.setEnabled(false);
-        this.increaseXGridButton.setEnabled(false);
-        this.decreaseXGridButton.setEnabled(false);
-        this.increaseYGridButton.setEnabled(false);
-        this.decreaseYGridButton.setEnabled(false);
-        this.viewSourceCodeButton.setEnabled(false);
-        this.showOnlyUpstreamButton.setEnabled(false);
-        this.showOnlyDownstreamButton.setEnabled(false);
-        this.showOnlyUpstreamDownstreamButton.setEnabled(false);
-        this.searchTextField.setEnabled(false);
+        Arrays.asList(
+                this.viewPackageNameComboBox,
+                this.viewFilePathComboBox,
+                this.nodeSelectionComboBox,
+                this.nodeColorComboBox,
+                this.fitGraphToBestRatioButton,
+                this.fitGraphToViewButton,
+                this.increaseXGridButton,
+                this.decreaseXGridButton,
+                this.increaseYGridButton,
+                this.decreaseYGridButton,
+                this.viewSourceCodeButton,
+                this.showOnlyUpstreamButton,
+                this.showOnlyDownstreamButton,
+                this.showOnlyUpstreamDownstreamButton,
+                this.searchTextField
+        ).forEach(component -> component.setEnabled(false));
+        // filter-related checkboxes
+        this.filterAccessCheckboxes.forEach(checkbox -> {
+            checkbox.setEnabled(false);
+            checkbox.setSelected(true);
+        });
         // progress bar
         this.loadingProgressBar.setVisible(true);
         // clear the canvas panel, ready for new graph
@@ -342,18 +377,22 @@ public class CallGraphToolWindow {
         // hide progress bar
         this.loadingProgressBar.setVisible(false);
         // enable some checkboxes and buttons
-        this.viewPackageNameComboBox.setEnabled(true);
-        this.viewFilePathComboBox.setEnabled(true);
-        this.nodeSelectionComboBox.setEnabled(true);
-        this.nodeColorComboBox.setEnabled(true);
-        this.fitGraphToBestRatioButton.setEnabled(true);
-        this.fitGraphToViewButton.setEnabled(true);
-        this.increaseXGridButton.setEnabled(true);
-        this.decreaseXGridButton.setEnabled(true);
-        this.increaseYGridButton.setEnabled(true);
-        this.decreaseYGridButton.setEnabled(true);
-        this.searchTextField.setEnabled(true);
         enableFocusedMethodButtons();
+        Arrays.asList(
+                this.viewPackageNameComboBox,
+                this.viewFilePathComboBox,
+                this.nodeSelectionComboBox,
+                this.nodeColorComboBox,
+                this.fitGraphToBestRatioButton,
+                this.fitGraphToViewButton,
+                this.increaseXGridButton,
+                this.decreaseXGridButton,
+                this.increaseYGridButton,
+                this.decreaseYGridButton,
+                this.searchTextField
+        ).forEach(component -> component.setEnabled(true));
+        // filter-related checkboxes
+        this.filterAccessCheckboxes.forEach(checkbox -> checkbox.setEnabled(true));
     }
 
     @NotNull

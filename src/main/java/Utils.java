@@ -538,4 +538,20 @@ class Utils {
                 })
                 .collect(Collectors.toSet());
     }
+
+    static boolean isPublic(@NotNull PsiMethod method) {
+        return method.getModifierList().hasModifierProperty(PsiModifier.PUBLIC);
+    }
+
+    static boolean isProtected(@NotNull PsiMethod method) {
+        return method.getModifierList().hasModifierProperty(PsiModifier.PROTECTED);
+    }
+
+    static boolean isPackageLocal(@NotNull PsiMethod method) {
+        return method.getModifierList().hasModifierProperty(PsiModifier.PACKAGE_LOCAL);
+    }
+
+    static boolean isPrivate(@NotNull PsiMethod method) {
+        return method.getModifierList().hasModifierProperty(PsiModifier.PRIVATE);
+    }
 }

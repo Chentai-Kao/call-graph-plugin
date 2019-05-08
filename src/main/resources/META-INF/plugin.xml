@@ -67,6 +67,9 @@
         <li>
           Support color-coding nodes by <b>function access level (public, protected, package local, private)</b> and <b>class name</b>.
         </li>
+        <li>
+          Support filtering nodes by <b>function access level (public, protected, package local, private)</b>.
+        </li>
       </ul>
     ]]></change-notes>
 
