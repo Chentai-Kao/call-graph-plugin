@@ -64,6 +64,9 @@
         <li>
           Support <b>function name search</b>: highlight nodes in the graph whose function name matches your search query
         </li>
+        <li>
+          Support color-coding nodes by <b>function access level (public, protected, package local, private)</b> and <b>class name</b>.
+        </li>
       </ul>
     ]]></change-notes>
 

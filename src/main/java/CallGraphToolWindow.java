@@ -43,6 +43,7 @@ public class CallGraphToolWindow {
     private JComboBox<String> viewFilePathComboBox;
     private JComboBox<String> nodeSelectionComboBox;
     private JTextField searchTextField;
+    private JComboBox<String> nodeColorComboBox;
 
     private final CanvasBuilder canvasBuilder = new CanvasBuilder();
     private Canvas canvas;
@@ -50,16 +51,28 @@ public class CallGraphToolWindow {
 
     public CallGraphToolWindow() {
         // drop-down options
-        List<ComboBoxOptions> viewComboBoxOptions =
-                Arrays.asList(ComboBoxOptions.VIEW_ALWAYS, ComboBoxOptions.VIEW_HOVERED, ComboBoxOptions.VIEW_NEVER);
+        List<ComboBoxOptions> viewComboBoxOptions = Arrays.asList(
+                ComboBoxOptions.VIEW_ALWAYS,
+                ComboBoxOptions.VIEW_HOVERED,
+                ComboBoxOptions.VIEW_NEVER
+        );
         viewComboBoxOptions.forEach(option -> this.viewPackageNameComboBox.addItem(option.getText()));
         this.viewPackageNameComboBox.setSelectedItem(ComboBoxOptions.VIEW_HOVERED.getText());
         viewComboBoxOptions.forEach(option -> this.viewFilePathComboBox.addItem(option.getText()));
         this.viewFilePathComboBox.setSelectedItem(ComboBoxOptions.VIEW_NEVER.getText());
-        List<ComboBoxOptions> nodeSelectionComboBoxOptions =
-                Arrays.asList(ComboBoxOptions.NODE_SELECTION_SINGLE, ComboBoxOptions.NODE_SELECTION_MULTIPLE);
+        List<ComboBoxOptions> nodeSelectionComboBoxOptions = Arrays.asList(
+                ComboBoxOptions.NODE_SELECTION_SINGLE,
+                ComboBoxOptions.NODE_SELECTION_MULTIPLE
+        );
         nodeSelectionComboBoxOptions.forEach(option -> this.nodeSelectionComboBox.addItem(option.getText()));
         this.nodeSelectionComboBox.setSelectedItem(ComboBoxOptions.NODE_SELECTION_SINGLE.getText());
+        List<ComboBoxOptions> nodeColorComboBoxOptions = Arrays.asList(
+                ComboBoxOptions.NODE_COLOR_NONE,
+                ComboBoxOptions.NODE_COLOR_ACCESS,
+                ComboBoxOptions.NODE_COLOR_CLASS
+        );
+        nodeColorComboBoxOptions.forEach(option -> this.nodeColorComboBox.addItem(option.getText()));
+        this.nodeColorComboBox.setSelectedItem(ComboBoxOptions.NODE_COLOR_NONE.getText());
 
         // search field
         this.searchTextField.addKeyListener(new KeyListener() {
@@ -87,6 +100,7 @@ public class CallGraphToolWindow {
         });
         this.viewPackageNameComboBox.addActionListener(e -> this.canvas.repaint());
         this.viewFilePathComboBox.addActionListener(e -> this.canvas.repaint());
+        this.nodeColorComboBox.addActionListener(e -> this.canvas.repaint());
         this.showOnlyUpstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM));
         this.showOnlyDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.DOWNSTREAM));
         this.showOnlyUpstreamDownstreamButton.addActionListener(e -> run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM));
@@ -160,6 +174,14 @@ public class CallGraphToolWindow {
     boolean isQueried(@NotNull String text) {
         String searchQuery = this.searchTextField.getText().toLowerCase();
         return !searchQuery.isEmpty() && text.toLowerCase().contains(searchQuery);
+    }
+
+    boolean isNodeColorByAccess() {
+        return getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_ACCESS;
+    }
+
+    boolean isNodeColorByClassName() {
+        return getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_CLASS;
     }
 
     void run(@NotNull CanvasConfig.BuildType buildType) {
@@ -292,6 +314,7 @@ public class CallGraphToolWindow {
         this.viewPackageNameComboBox.setEnabled(false);
         this.viewFilePathComboBox.setEnabled(false);
         this.nodeSelectionComboBox.setEnabled(false);
+        this.nodeColorComboBox.setEnabled(false);
         this.fitGraphToBestRatioButton.setEnabled(false);
         this.fitGraphToViewButton.setEnabled(false);
         this.increaseXGridButton.setEnabled(false);
@@ -322,6 +345,7 @@ public class CallGraphToolWindow {
         this.viewPackageNameComboBox.setEnabled(true);
         this.viewFilePathComboBox.setEnabled(true);
         this.nodeSelectionComboBox.setEnabled(true);
+        this.nodeColorComboBox.setEnabled(true);
         this.fitGraphToBestRatioButton.setEnabled(true);
         this.fitGraphToViewButton.setEnabled(true);
         this.increaseXGridButton.setEnabled(true);

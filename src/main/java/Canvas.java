@@ -1,4 +1,7 @@
-import com.intellij.ui.JBColor;
+import com.google.common.collect.ImmutableMap;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiModifier;
+import com.intellij.psi.PsiModifierList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,7 +20,7 @@ class Canvas extends JPanel {
     private final Graph graph;
     private JPanel canvasPanel;
     private final CallGraphToolWindow callGraphToolWindow;
-    private Map<Shape, Node> nodeShapesMap;
+    private Map<Shape, Node> nodeShapesMap = Collections.emptyMap();
     private Node hoveredNode;
     private final Point2D defaultCameraOrigin = new Point2D.Float(0, 0);
     private final float defaultZoomRatio = 1.0f;
@@ -27,13 +30,12 @@ class Canvas extends JPanel {
     private final int nodeRadius = 5;
     private final float regularLineWidth = 1.0f;
     private final Stroke solidLineStroke = new BasicStroke(regularLineWidth);
-    private final Color backgroundColor = new JBColor(new Color(0xFDFEFF), new Color(0x292B2D));
-    private final Color unHighlightedColor = new JBColor(new Color(0xC6C8CA), new Color(0x585A5C));
-    private final Color neutralColor = new JBColor(new Color(0x626466), new Color(0x949698));
-    private final Color highlightedColor = new JBColor(new Color(0x4285F4), new Color(0x589DEF));
-    private final Color highlightedBackgroundColor = new JBColor(new Color(0xFFFF00), new Color(0xFFFF00));
-    private final Color upstreamColor = new JBColor(new Color(0xFBBC05), new Color(0xBE9117));
-    private final Color downstreamColor = new JBColor(new Color(0x34A853), new Color(0x538863));
+    private final Map<String, Color> methodAccessColorMap = ImmutableMap.<String, Color>builder()
+            .put(PsiModifier.PUBLIC, Colors.green)
+            .put(PsiModifier.PROTECTED, Colors.cyan)
+            .put(PsiModifier.PACKAGE_LOCAL, Colors.lightOrange)
+            .put(PsiModifier.PRIVATE, Colors.red)
+            .build();
 
     Canvas(@NotNull CallGraphToolWindow callGraphToolWindow, @NotNull Graph graph) {
         super();
@@ -51,7 +53,7 @@ class Canvas extends JPanel {
         graphics2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
         // fill the background for entire canvas
-        graphics2D.setColor(this.backgroundColor);
+        graphics2D.setColor(Colors.backgroundColor);
         graphics2D.fillRect(0, 0, this.getWidth(), this.getHeight());
 
         // draw un-highlighted and highlighted self loops
@@ -65,7 +67,7 @@ class Canvas extends JPanel {
                 .stream()
                 .filter(edge -> edge.getSourceNode() != edge.getTargetNode() &&
                         !isNodeHighlighted(edge.getSourceNode()) && !isNodeHighlighted(edge.getTargetNode()))
-                .forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.unHighlightedColor));
+                .forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.unHighlightedColor));
 
         // draw upstream/downstream edges
         Set<Node> highlightedNodes = this.graph.getNodes()
@@ -78,8 +80,8 @@ class Canvas extends JPanel {
         Set<Edge> downstreamEdges = highlightedNodes.stream()
                 .flatMap(node -> node.getOutEdges().values().stream())
                 .collect(Collectors.toSet());
-        upstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.upstreamColor));
-        downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, this.downstreamColor));
+        upstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.upstreamColor));
+        downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.downstreamColor));
 
         // draw un-highlighted labels
         Set<Node> upstreamNodes = upstreamEdges.stream().map(Edge::getSourceNode).collect(Collectors.toSet());
@@ -90,27 +92,27 @@ class Canvas extends JPanel {
                         !isNodeHighlighted(node) && !upstreamNodes.contains(node) && !downstreamNodes.contains(node)
                 )
                 .collect(Collectors.toSet());
-        unHighlightedNodes.forEach(node -> drawNodeLabels(graphics2D, node, this.neutralColor, false));
+        unHighlightedNodes.forEach(node -> drawNodeLabels(graphics2D, node, Colors.neutralColor, false));
 
         // draw un-highlighted nodes (upstream/downstream nodes are excluded)
         this.nodeShapesMap = new HashMap<>();
         unHighlightedNodes.stream()
                 .filter(node -> !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
-                .forEach(node -> drawNode(graphics2D, node, this.unHighlightedColor));
+                .forEach(node -> drawNode(graphics2D, node, Colors.unHighlightedColor));
 
         // draw upstream/downstream label and nodes
-        upstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, this.upstreamColor, false));
-        downstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, this.downstreamColor, false));
-        upstreamNodes.forEach(node -> drawNode(graphics2D, node, this.upstreamColor));
-        downstreamNodes.forEach(node -> drawNode(graphics2D, node, this.downstreamColor));
+        upstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, Colors.upstreamColor, false));
+        downstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, Colors.downstreamColor, false));
+        upstreamNodes.forEach(node -> drawNode(graphics2D, node, Colors.upstreamColor));
+        downstreamNodes.forEach(node -> drawNode(graphics2D, node, Colors.downstreamColor));
 
         // draw highlighted node and label
         this.graph.getNodes()
                 .stream()
                 .filter(this::isNodeHighlighted)
                 .forEach(node -> {
-                    drawNode(graphics2D, node, this.highlightedColor);
-                    drawNodeLabels(graphics2D, node, this.highlightedColor, true);
+                    drawNode(graphics2D, node, Colors.highlightedColor);
+                    drawNodeLabels(graphics2D, node, Colors.highlightedColor, true);
                 });
     }
 
@@ -222,10 +224,31 @@ class Canvas extends JPanel {
         drawLineArrow(graphics2D, sourceNodeCenter, targetNodeCenter, color);
     }
 
-    private void drawNode(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull Color color) {
+    private void drawNode(@NotNull Graphics2D graphics2D, @NotNull Node node, @NotNull Color outlineColor) {
         Point2D nodeCenter = toCameraView(node.getPoint());
-        Shape nodeShape = drawCircle(graphics2D, nodeCenter, this.nodeRadius, color);
+        Color backgroundColor = getNodeBackgroundColor(node);
+        Shape nodeShape = drawCircle(graphics2D, nodeCenter, this.nodeRadius, backgroundColor, outlineColor);
         this.nodeShapesMap.put(nodeShape, node);
+    }
+
+    @NotNull
+    private Color getNodeBackgroundColor(@NotNull Node node) {
+        if (this.callGraphToolWindow.isNodeColorByAccess()) {
+            PsiModifierList psiModifierList = node.getMethod().getModifierList();
+            return this.methodAccessColorMap.keySet()
+                    .stream()
+                    .filter(psiModifierList::hasModifierProperty)
+                    .findFirst()
+                    .map(this.methodAccessColorMap::get)
+                    .orElse(Colors.backgroundColor);
+        } else if (this.callGraphToolWindow.isNodeColorByClassName()) {
+            PsiClass psiClass = node.getMethod().getContainingClass();
+            if (psiClass != null) {
+                int hashIndex = psiClass.hashCode() % Colors.heatMapColors.size();
+                return Colors.heatMapColors.get(hashIndex);
+            }
+        }
+        return Colors.backgroundColor;
     }
 
     @NotNull
@@ -241,12 +264,12 @@ class Canvas extends JPanel {
         // package name
         if (this.callGraphToolWindow.isRenderFunctionPackageName(isNodeHovered)) {
             String packageName = Utils.getMethodPackageName(node.getMethod());
-            labels.add(new AbstractMap.SimpleEntry<>(packageName, this.unHighlightedColor));
+            labels.add(new AbstractMap.SimpleEntry<>(packageName, Colors.unHighlightedColor));
         }
         // file path
         if (this.callGraphToolWindow.isRenderFunctionFilePath(isNodeHovered)) {
             String filePath = Utils.getMethodFilePath(node.getMethod());
-            labels.add(new AbstractMap.SimpleEntry<>(filePath, this.unHighlightedColor));
+            labels.add(new AbstractMap.SimpleEntry<>(filePath, Colors.unHighlightedColor));
         }
         return labels;
     }
@@ -286,7 +309,7 @@ class Canvas extends JPanel {
                 (float) boundingBoxLowerLeft.getY()
         );
         Color textBackgroundColor = this.callGraphToolWindow.isQueried(node.getMethod().getName()) ?
-                this.highlightedBackgroundColor : this.backgroundColor;
+                Colors.highlightedBackgroundColor : Colors.backgroundColor;
         graphics2D.setColor(textBackgroundColor);
         graphics2D.fillRect(
                 (int) boundingBoxUpperLeft.getX() + 1,
@@ -296,10 +319,10 @@ class Canvas extends JPanel {
         );
         // draw border if the node is hovered
         if (isNodeHovered) {
-            drawLine(graphics2D, boundingBoxLowerLeft, boundingBoxUpperLeft, this.unHighlightedColor);
-            drawLine(graphics2D, boundingBoxUpperLeft, boundingBoxUpperRight, this.unHighlightedColor);
-            drawLine(graphics2D, boundingBoxUpperRight, boundingBoxLowerRight, this.unHighlightedColor);
-            drawLine(graphics2D, boundingBoxLowerRight, boundingBoxLowerLeft, this.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxLowerLeft, boundingBoxUpperLeft, Colors.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxUpperLeft, boundingBoxUpperRight, Colors.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxUpperRight, boundingBoxLowerRight, Colors.unHighlightedColor);
+            drawLine(graphics2D, boundingBoxLowerRight, boundingBoxLowerLeft, Colors.unHighlightedColor);
         }
         // draw text
         IntStream.range(0, labels.size())
@@ -318,6 +341,7 @@ class Canvas extends JPanel {
             Graphics2D graphics2D,
             @NotNull Point2D circleCenter,
             int radius,
+            @NotNull Color backgroundColor,
             @NotNull Color outlineColor) {
         // create node shape
         Point2D upperLeft = new Point2D.Float(
@@ -332,7 +356,7 @@ class Canvas extends JPanel {
                 diameter
         );
         // fill node with color
-        graphics2D.setColor(this.backgroundColor);
+        graphics2D.setColor(backgroundColor);
         graphics2D.fill(shape);
         // draw the outline
         graphics2D.setColor(outlineColor);
@@ -394,8 +418,8 @@ class Canvas extends JPanel {
         );
         Shape strokedUpstreamHalfShape = this.solidLineStroke.createStrokedShape(upstreamHalfArc);
         Shape strokedDownstreamHalfShape = this.solidLineStroke.createStrokedShape(downstreamHalfArc);
-        Color upstreamHalfLoopColor = isHighlighted ? this.upstreamColor : this.unHighlightedColor;
-        Color downstreamHalfLoopColor = isHighlighted ? this.downstreamColor : this.unHighlightedColor;
+        Color upstreamHalfLoopColor = isHighlighted ? Colors.upstreamColor : Colors.unHighlightedColor;
+        Color downstreamHalfLoopColor = isHighlighted ? Colors.downstreamColor : Colors.unHighlightedColor;
         graphics2D.setColor(upstreamHalfLoopColor);
         graphics2D.draw(strokedUpstreamHalfShape);
         graphics2D.setColor(downstreamHalfLoopColor);
