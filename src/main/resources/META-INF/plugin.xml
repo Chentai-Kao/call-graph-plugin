@@ -155,19 +155,19 @@
                  - "description" (optional) specifies the text displayed in the status bar when the action is focused.
                  - "icon" (optional) specifies the icon displayed on the toolbar button or next to the menu item. -->
             <action id="CallGraph.ViewUpstreamDownstreamCallGraphFromSource"
-                    class="ViewUpstreamDownstreamAction"
+                    class="callgraph.ViewUpstreamDownstreamAction"
                     text="View upstream/downstream call graph"
                     description="View the upstream/downstream call graph of this function"
                     icon="/icons/icon.svg">
             </action>
             <action id="CallGraph.ViewUpstreamCallGraphFromSource"
-                    class="ViewUpstreamAction"
+                    class="callgraph.ViewUpstreamAction"
                     text="View upstream call graph"
                     description="View the upstream call graph of this function"
                     icon="/icons/icon.svg">
             </action>
             <action id="CallGraph.ViewDownstreamCallGraphFromSource"
-                    class="ViewDownstreamAction"
+                    class="callgraph.ViewDownstreamAction"
                     text="View downstream call graph"
                     description="View the downstream call graph of this function"
                     icon="/icons/icon.svg">
@@ -209,10 +209,10 @@
                 secondary="true"
                 icon="/icons/icon.svg"
                 anchor="right"
-                factoryClass="CallGraphToolWindowFactory"/>
+                factoryClass="oldcallgraph.CallGraphToolWindowFactory"/>
         <!-- Project service holds a reference to the tool window, which is accessible by an action (editor menu) -->
-        <projectService serviceInterface="CallGraphToolWindowProjectService"
-                        serviceImplementation="CallGraphToolWindowProjectService"/>
+        <projectService serviceInterface="oldcallgraph.CallGraphToolWindowProjectService"
+                        serviceImplementation="oldcallgraph.CallGraphToolWindowProjectService"/>
     </extensions>
 
     <!-- <extensions defaultExtensionNs="com.intellij">

@@ -1,3 +1,6 @@
+package oldcallgraph;
+
+import callgraph.Graph;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.psi.PsiFile;

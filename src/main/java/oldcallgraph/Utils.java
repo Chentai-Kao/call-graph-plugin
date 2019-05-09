@@ -1,3 +1,8 @@
+package oldcallgraph;
+
+import callgraph.Edge;
+import callgraph.Graph;
+import callgraph.Node;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
@@ -40,7 +45,7 @@ import static guru.nidi.graphviz.model.Factory.mutNode;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
 
-class Utils {
+public class Utils {
     private static final float normalizedGridSize = 0.1f;
 
     @Nullable
@@ -168,14 +173,14 @@ class Utils {
 
     static void layout(@NotNull Graph graph) {
         // get connected components from the graph, and render each part separately
-        Set<Map<String, Point2D>> subGraphBlueprints = graph.getConnectedComponents()
+        Set<Map<String, Point2D.Float>> subGraphBlueprints = graph.getConnectedComponents()
                 .stream()
                 .map(Utils::getLayoutFromGraphViz)
                 .map(Utils::normalizeBlueprintGridSize)
                 .collect(Collectors.toSet());
 
         // merge all connected components to a single graph, then adjust node coordinates so they fit in the view
-        Map<String, Point2D> mergedBlueprint = Utils.mergeNormalizedLayouts(new ArrayList<>(subGraphBlueprints));
+        Map<String, Point2D.Float> mergedBlueprint = Utils.mergeNormalizedLayouts(new ArrayList<>(subGraphBlueprints));
         applyRawLayoutBlueprintToGraph(mergedBlueprint, graph);
         applyLayoutBlueprintToGraph(mergedBlueprint, graph);
     }
@@ -192,7 +197,7 @@ class Utils {
                 );
     }
 
-    static void applyLayoutBlueprintToGraph(@NotNull Map<String, Point2D> blueprint, @NotNull Graph graph) {
+    static void applyLayoutBlueprintToGraph(@NotNull Map<String, Point2D.Float> blueprint, @NotNull Graph graph) {
         blueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setPoint(point));
     }
 
@@ -243,7 +248,7 @@ class Utils {
     }
 
     @NotNull
-    static Map<String, Point2D> fitLayoutToViewport(@NotNull Map<String, Point2D> blueprint) {
+    static Map<String, Point2D.Float> fitLayoutToViewport(@NotNull Map<String, Point2D> blueprint) {
         Point2D maxPoint = blueprint.values()
                 .stream()
                 .reduce((pointA, pointB) -> new Point2D.Double(
@@ -262,14 +267,14 @@ class Utils {
                 .stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> new Point2D.Double(
-                                (entry.getValue().getX() - minPoint.getX()) / xSize * bestFitSize + bestFitBaseline,
-                                (entry.getValue().getY() - minPoint.getY()) / ySize * bestFitSize + bestFitBaseline
+                        entry -> new Point2D.Float(
+                                (float) ((entry.getValue().getX() - minPoint.getX()) / xSize * bestFitSize + bestFitBaseline),
+                                (float) ((entry.getValue().getY() - minPoint.getY()) / ySize * bestFitSize + bestFitBaseline)
                         )
                 ));
     }
 
-    static void runCallGraphFromAction(
+    public static void runCallGraphFromAction(
             @NotNull AnActionEvent anActionEvent,
             @NotNull CanvasConfig.BuildType buildType) {
         Project project = anActionEvent.getProject();
@@ -286,19 +291,19 @@ class Utils {
         }
     }
 
-    static void setActionEnabledAndVisibleByContext(@NotNull AnActionEvent anActionEvent) {
+    public static void setActionEnabledAndVisibleByContext(@NotNull AnActionEvent anActionEvent) {
         Project project = anActionEvent.getProject();
         PsiElement psiElement = anActionEvent.getData(CommonDataKeys.PSI_ELEMENT);
         boolean isEnabledAndVisible = project != null && psiElement instanceof PsiMethod;
         anActionEvent.getPresentation().setEnabledAndVisible(isEnabledAndVisible);
     }
 
-    private static void applyRawLayoutBlueprintToGraph(@NotNull Map<String, Point2D> blueprint, @NotNull Graph graph) {
+    private static void applyRawLayoutBlueprintToGraph(@NotNull Map<String, Point2D.Float> blueprint, @NotNull Graph graph) {
         blueprint.forEach((nodeId, point) -> graph.getNode(nodeId).setRawLayoutPoint(point));
     }
 
     @NotNull
-    private static Map<String, Point2D> normalizeBlueprintGridSize(@NotNull Map<String, Point2D> blueprint) {
+    private static Map<String, Point2D.Float> normalizeBlueprintGridSize(@NotNull Map<String, Point2D.Float> blueprint) {
         if (blueprint.size() < 2) {
             return blueprint;
         }
@@ -317,11 +322,11 @@ class Utils {
     }
 
     @NotNull
-    private static Map<String, Point2D> mergeNormalizedLayouts(@NotNull List<Map<String, Point2D>> blueprints) {
+    private static Map<String, Point2D.Float> mergeNormalizedLayouts(@NotNull List<Map<String, Point2D.Float>> blueprints) {
         if (blueprints.isEmpty()) {
             return Collections.emptyMap();
         }
-        Map<Map<String, Point2D>, Float> blueprintHeights = blueprints.stream()
+        Map<Map<String, Point2D.Float>, Float> blueprintHeights = blueprints.stream()
                 .collect(Collectors.toMap(
                         blueprint -> blueprint,
                         blueprint -> {
@@ -333,7 +338,7 @@ class Utils {
                             return max(yPoints) - min(yPoints) + normalizedGridSize;
                         })
                 );
-        List<Map<String, Point2D>> sortedBlueprints = blueprintHeights.entrySet()
+        List<Map<String, Point2D.Float>> sortedBlueprints = blueprintHeights.entrySet()
                 .stream()
                 .sorted(Comparator.comparing(entry -> -entry.getValue()))
                 .map(Map.Entry::getKey)
@@ -358,8 +363,8 @@ class Utils {
                             .stream()
                             .mapToDouble(Float::doubleValue)
                             .sum();
-                    // left align the graph by the left-most nodes, then centering the baseline
-                    Map<String, Point2D> blueprint = sortedBlueprints.get(index);
+                    // left align the graph by the left-most nodesMap, then centering the baseline
+                    Map<String, Point2D.Float> blueprint = sortedBlueprints.get(index);
                     float minX = (float) blueprint.values()
                             .stream()
                             .map(Point2D::getX)
@@ -367,7 +372,7 @@ class Utils {
                             .min()
                             .orElse(0);
                     //noinspection UnnecessaryLocalVariable
-                    Map<String, Point2D> shiftedBlueprint = blueprint.entrySet()
+                    Map<String, Point2D.Float> shiftedBlueprint = blueprint.entrySet()
                             .stream()
                             .collect(Collectors.toMap(
                                     Map.Entry::getKey,
@@ -386,7 +391,7 @@ class Utils {
     }
 
     @NotNull
-    private static Point2D getGridSize(@NotNull Map<String, Point2D> blueprint) {
+    private static Point2D getGridSize(@NotNull Map<String, Point2D.Float> blueprint) {
         float precisionFactor = 1000;
         Set<Long> xUniqueValues = blueprint.values()
                 .stream()
@@ -451,7 +456,7 @@ class Utils {
     }
 
     @NotNull
-    private static Map<String, Point2D> getLayoutFromGraphViz(@NotNull Graph graph) {
+    private static Map<String, Point2D.Float> getLayoutFromGraphViz(@NotNull Graph graph) {
         // if graph only has one node, just set its coordinate to (0.5, 0.5), no need to call GraphViz
         if (graph.getNodes().size() == 1) {
             return graph.getNodes()

@@ -1,3 +1,5 @@
+package oldcallgraph;
+
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiInvalidElementAccessException;
 import com.intellij.psi.PsiMethod;

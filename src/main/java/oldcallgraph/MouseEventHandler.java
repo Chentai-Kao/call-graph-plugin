@@ -1,9 +1,12 @@
+package oldcallgraph;
+
+import callgraph.Node;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.event.*;
 import java.awt.geom.Point2D;
 
-class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
+public class MouseEventHandler implements MouseListener, MouseMotionListener, MouseWheelListener {
     private final Canvas canvas;
     private Point2D lastMousePosition;
 

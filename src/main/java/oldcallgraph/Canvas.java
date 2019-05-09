@@ -1,4 +1,9 @@
+package oldcallgraph;
+
 import callgraph.Colors;
+import callgraph.Edge;
+import callgraph.Graph;
+import callgraph.Node;
 import com.google.common.collect.ImmutableMap;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiMethod;
@@ -18,7 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-class Canvas extends JPanel {
+public class Canvas extends JPanel {
     private final Graph graph;
     private JPanel canvasPanel;
     private final CallGraphToolWindow callGraphToolWindow;
@@ -79,13 +84,13 @@ class Canvas extends JPanel {
                 .filter(edge -> edge.getSourceNode() == edge.getTargetNode())
                 .forEach(edge -> drawSelfLoopEdge(graphics2D, edge, isNodeHighlighted(edge.getSourceNode())));
 
-        // draw un-highlighted edges
+        // draw un-highlighted edgesMap
         this.visibleEdges.stream()
                 .filter(edge -> edge.getSourceNode() != edge.getTargetNode() &&
                         !isNodeHighlighted(edge.getSourceNode()) && !isNodeHighlighted(edge.getTargetNode()))
                 .forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.UN_HIGHLIGHTED_COLOR.getColor()));
 
-        // draw upstream/downstream edges
+        // draw upstream/downstream edgesMap
         Set<Node> highlightedNodes = this.visibleNodes.stream()
                 .filter(this::isNodeHighlighted)
                 .collect(Collectors.toSet());
@@ -96,7 +101,7 @@ class Canvas extends JPanel {
                 .flatMap(node -> node.getOutEdges().values().stream())
                 .collect(Collectors.toSet());
         upstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.UPSTREAM_COLOR.getColor()));
-        downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.UPSTREAM_COLOR.getColor()));
+        downstreamEdges.forEach(edge -> drawNonLoopEdge(graphics2D, edge, Colors.DOWNSTREAM_COLOR.getColor()));
 
         // draw un-highlighted labels
         Set<Node> upstreamNodes = upstreamEdges.stream().map(Edge::getSourceNode).collect(Collectors.toSet());
@@ -108,13 +113,13 @@ class Canvas extends JPanel {
                 .collect(Collectors.toSet());
         unHighlightedNodes.forEach(node -> drawNodeLabels(graphics2D, node, Colors.NEUTRAL_COLOR.getColor(), false));
 
-        // draw un-highlighted nodes (upstream/downstream nodes are excluded)
+        // draw un-highlighted nodesMap (upstream/downstream nodesMap are excluded)
         this.nodeShapesMap = new HashMap<>();
         unHighlightedNodes.stream()
                 .filter(node -> !upstreamNodes.contains(node) && !downstreamNodes.contains(node))
                 .forEach(node -> drawNode(graphics2D, node, Colors.UN_HIGHLIGHTED_COLOR.getColor()));
 
-        // draw upstream/downstream label and nodes
+        // draw upstream/downstream label and nodesMap
         upstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, Colors.UPSTREAM_COLOR.getColor(), false));
         downstreamNodes.forEach(node -> drawNodeLabels(graphics2D, node, Colors.DOWNSTREAM_COLOR.getColor(), false));
         upstreamNodes.forEach(node -> drawNode(graphics2D, node, Colors.UPSTREAM_COLOR.getColor()));
@@ -191,7 +196,7 @@ class Canvas extends JPanel {
         Map<String, Point2D> blueprint = this.graph.getNodes()
                 .stream()
                 .collect(Collectors.toMap(Node::getId, Node::getRawLayoutPoint));
-        Map<String, Point2D> bestFitBlueprint = Utils.fitLayoutToViewport(blueprint);
+        Map<String, Point2D.Float> bestFitBlueprint = Utils.fitLayoutToViewport(blueprint);
         Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph);
         this.cameraOrigin = defaultCameraOrigin;
         this.xZoomRatio = defaultZoomRatio;

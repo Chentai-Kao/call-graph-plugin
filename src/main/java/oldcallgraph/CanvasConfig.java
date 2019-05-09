@@ -1,3 +1,5 @@
+package oldcallgraph;
+
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
@@ -5,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashSet;
 import java.util.Set;
 
-class CanvasConfig {
+public class CanvasConfig {
     public enum BuildType {
         WHOLE_PROJECT_WITH_TEST_LIMITED(
                 "Whole project (test files included), limited upstream/downstream scope"),

@@ -1,3 +1,6 @@
+package oldcallgraph;
+
+import callgraph.ComboBoxOptions;
 import com.intellij.ide.util.EditorHelper;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiMethod;
@@ -239,7 +242,7 @@ public class CallGraphToolWindow {
         if (selectedText == null) {
             return ComboBoxOptions.DUMMY;
         }
-        return ComboBoxOptions.findByText(selectedText);
+        return ComboBoxOptions.fromText(selectedText);
     }
 
     private void disableAllSecondaryOptions() {

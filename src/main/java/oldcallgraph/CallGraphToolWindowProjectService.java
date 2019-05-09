@@ -1,6 +1,8 @@
+package oldcallgraph;
+
 import org.jetbrains.annotations.NotNull;
 
-class CallGraphToolWindowProjectService {
+public class CallGraphToolWindowProjectService {
     private CallGraphToolWindow callGraphToolWindow;
 
     CallGraphToolWindow getCallGraphToolWindow() {
