@@ -24,6 +24,6 @@ data class Node(val id: String, val method: PsiMethod) {
     fun getNeighbors(): List<Node> {
         val upstreamNodes = this.inEdges.values.map { it.sourceNode }
         val downstreamNodes = this.outEdges.values.map { it.targetNode }
-        return upstreamNodes + downstreamNodes
+        return upstreamNodes.union(downstreamNodes).toList()
     }
 }

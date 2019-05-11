@@ -209,10 +209,10 @@
                 secondary="true"
                 icon="/icons/icon.svg"
                 anchor="right"
-                factoryClass="oldcallgraph.CallGraphToolWindowFactory"/>
+                factoryClass="callgraph.CallGraphToolWindowFactory"/>
         <!-- Project service holds a reference to the tool window, which is accessible by an action (editor menu) -->
-        <projectService serviceInterface="oldcallgraph.CallGraphToolWindowProjectService"
-                        serviceImplementation="oldcallgraph.CallGraphToolWindowProjectService"/>
+        <projectService serviceInterface="callgraph.CallGraphToolWindowProjectService"
+                        serviceImplementation="callgraph.CallGraphToolWindowProjectService"/>
     </extensions>
 
     <!-- <extensions defaultExtensionNs="com.intellij">
