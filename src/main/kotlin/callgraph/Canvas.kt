@@ -395,7 +395,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
             graphics2D: Graphics2D,
             sourcePoint: Point2D.Float,
             targetPoint: Point2D.Float,
-            arrowColor: Color) {
+            arrowColor: Color
+    ) {
         val angle = Math.atan2((targetPoint.y - sourcePoint.y).toDouble(), (targetPoint.x - sourcePoint.x).toDouble())
         val arrowCenter = Point2D.Float(
                 0.5f * (sourcePoint.x + targetPoint.x),
@@ -408,7 +409,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
             graphics2D: Graphics2D,
             center: Point2D.Float,
             angle: Double,
-            arrowColor: Color) {
+            arrowColor: Color
+    ) {
         val arrowSize = 5f
         val midPoint = Point2D.Float(
                 center.x + arrowSize * Math.cos(angle).toFloat(),

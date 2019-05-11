@@ -14,7 +14,6 @@ enum class ComboBoxOptions(val text: String) {
     companion object {
         private val reverseMap = values().associateBy(ComboBoxOptions::text)
 
-        @JvmStatic
         fun fromText(text: String) = reverseMap.getValue(text)
     }
 }

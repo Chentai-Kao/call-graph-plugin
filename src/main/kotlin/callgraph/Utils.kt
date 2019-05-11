@@ -41,33 +41,11 @@ object Utils {
         return ModuleManager.getInstance(project).modules.toList()
     }
 
-    fun getDependencies(canvasConfig: CanvasConfig): Set<Dependency> {
-        // create a temporary config to get all files from the entire project
-        val wholeProjectScopeCanvasConfig =
-                CanvasConfig(canvasConfig.project, CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST)
-        val allFiles = getSourceCodeFiles(wholeProjectScopeCanvasConfig)
-        val methods = getMethodsInScope(wholeProjectScopeCanvasConfig, allFiles)
-
-        // parse method dependencies
-        canvasConfig.callGraphToolWindow?.resetProgressBar(methods.size)
-        return methods
-                .flatMap { method ->
-                    canvasConfig.callGraphToolWindow?.incrementProgressBar()
-                    PsiTreeUtil.findChildrenOfType(method, PsiIdentifier::class.java)
-                            .map { it.context }
-                            .filter { it != null }
-                            .flatMap { it!!.references.toList() }
-                            .map { it.resolve() }
-                            .filter { it is PsiMethod }
-                            .map { Dependency(method, it as PsiMethod) }
-                }
-                .toSet()
-    }
-
     fun getDependencyView(
             canvasConfig: CanvasConfig,
             methods: Set<PsiMethod>,
-            dependencies: Set<Dependency>): Set<Dependency> {
+            dependencies: Set<Dependency>
+    ): Set<Dependency> {
         return when (canvasConfig.buildType) {
             CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST_LIMITED,
             CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST_LIMITED,
@@ -102,15 +80,28 @@ object Utils {
             CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST,
             CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST,
             CanvasConfig.BuildType.MODULE,
-            CanvasConfig.BuildType.DIRECTORY -> files
-                    .flatMap { (it as PsiJavaFile).classes.toList() } // get all classes
-                    .flatMap { it.methods.toList() } // get all methods
-                    .toSet()
+            CanvasConfig.BuildType.DIRECTORY -> getMethodsFromFiles(files)
             CanvasConfig.BuildType.UPSTREAM,
             CanvasConfig.BuildType.DOWNSTREAM,
             CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM -> canvasConfig.focusedMethods
         }
     }
+
+    fun getMethodsFromFiles(files: Set<PsiFile>) =
+            files
+                    .flatMap { (it as PsiJavaFile).classes.toList() } // get all classes
+                    .flatMap { it.methods.toList() } // get all methods
+                    .toSet()
+
+    fun getDependenciesFromMethod(method: PsiMethod) =
+            PsiTreeUtil
+                    .findChildrenOfType(method, PsiIdentifier::class.java)
+                    .map { it.context }
+                    .filter { it != null }
+                    .flatMap { it!!.references.toList() }
+                    .map { it.resolve() }
+                    .filter { it is PsiMethod }
+                    .map { Dependency(method, it as PsiMethod) }
 
     fun layout(graph: Graph) {
         // get connected components from the graph, and render each part separately
@@ -215,34 +206,61 @@ object Utils {
 
     fun isPrivate(method: PsiMethod) = method.modifierList.hasModifierProperty(PsiModifier.PRIVATE)
 
-    fun getSourceCodeFiles(canvasConfig: CanvasConfig): Set<PsiFile> {
-        return getSourceCodeRoots(canvasConfig)
-                .flatMap { contentSourceRoot ->
-                    val childrenVirtualFiles = mutableListOf<VirtualFile>()
-                    VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, {
-                        if (it.isValid && !it.isDirectory) {
-                            val extension = it.extension
-                            if (extension.equals("java")) {
-                                childrenVirtualFiles.add(it)
-                            }
-                        }
-                        true
-                    })
-                    childrenVirtualFiles
-                }
-                .mapNotNull { PsiManager.getInstance(canvasConfig.project).findFile(it) }
-                .toSet()
+    fun getAllSourceCodeFiles(project: Project): Set<PsiFile> {
+        val sourceCodeRoots = getAllSourceCodeRoots(project)
+        return getSourceCodeFiles(project, sourceCodeRoots)
     }
+
+    fun getSourceCodeFiles(project: Project, sourceCodeRoots: Set<VirtualFile>) =
+            sourceCodeRoots
+                    .flatMap { contentSourceRoot ->
+                        val childrenVirtualFiles = mutableListOf<VirtualFile>()
+                        VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, {
+                            if (it.isValid && !it.isDirectory) {
+                                val extension = it.extension
+                                if (extension.equals("java")) {
+                                    childrenVirtualFiles.add(it)
+                                }
+                            }
+                            true
+                        })
+                        childrenVirtualFiles
+                    }
+                    .mapNotNull { PsiManager.getInstance(project).findFile(it) }
+                    .toSet()
 
     fun applyLayoutBlueprintToGraph(blueprint: Map<String, Point2D.Float>, graph: Graph) {
         blueprint.forEach { (nodeId, point) -> graph.getNode(nodeId).point = point }
     }
 
+    fun getSourceCodeRoots(canvasConfig: CanvasConfig) =
+            when (canvasConfig.buildType) {
+                CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST_LIMITED,
+                CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST ->
+                    getAllSourceCodeRoots(canvasConfig.project)
+                CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST_LIMITED,
+                CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST ->
+                    getActiveModules(canvasConfig.project)
+                            .flatMap { ModuleRootManager.getInstance(it).getSourceRoots(false).toSet() }
+                            .toSet()
+                CanvasConfig.BuildType.MODULE_LIMITED, CanvasConfig.BuildType.MODULE ->
+                    getSelectedModules(canvasConfig.project, canvasConfig.selectedModuleName)
+                            .flatMap { ModuleRootManager.getInstance(it).sourceRoots.toSet() }
+                            .toSet()
+                CanvasConfig.BuildType.DIRECTORY_LIMITED,
+                CanvasConfig.BuildType.DIRECTORY -> {
+                    val directoryPath = canvasConfig.selectedDirectoryPath
+                    listOfNotNull(LocalFileSystem.getInstance().findFileByPath(directoryPath)).toSet()
+                }
+                else -> emptySet()
+            }
+
     private fun getNestedDependencyView(
             dependencies: Set<Dependency>,
             methods: Set<PsiMethod>,
             seenMethods: MutableSet<PsiMethod>,
-            isUpstream: Boolean): Set<Dependency> {
+            isUpstream: Boolean
+    ): Set<Dependency> {
         if (methods.isEmpty()) {
             return emptySet()
         }
@@ -363,26 +381,5 @@ object Utils {
         return getActiveModules(project).filter { it.name == selectedModuleName }.toSet()
     }
 
-    private fun getSourceCodeRoots(canvasConfig: CanvasConfig): Set<VirtualFile> {
-        return when (canvasConfig.buildType) {
-            CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST_LIMITED,
-            CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST ->
-                ProjectRootManager.getInstance(canvasConfig.project).contentRoots.toSet()
-            CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST_LIMITED,
-            CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST ->
-                getActiveModules(canvasConfig.project)
-                        .flatMap { ModuleRootManager.getInstance(it).getSourceRoots(false).toSet() }
-                        .toSet()
-            CanvasConfig.BuildType.MODULE_LIMITED, CanvasConfig.BuildType.MODULE ->
-                getSelectedModules(canvasConfig.project, canvasConfig.selectedModuleName)
-                        .flatMap { ModuleRootManager.getInstance(it).sourceRoots.toSet() }
-                        .toSet()
-            CanvasConfig.BuildType.DIRECTORY_LIMITED,
-            CanvasConfig.BuildType.DIRECTORY -> {
-                val directoryPath = canvasConfig.selectedDirectoryPath
-                listOfNotNull(LocalFileSystem.getInstance().findFileByPath(directoryPath)).toSet()
-            }
-            else -> emptySet()
-        }
-    }
+    private fun getAllSourceCodeRoots(project: Project) = ProjectRootManager.getInstance(project).contentRoots.toSet()
 }
