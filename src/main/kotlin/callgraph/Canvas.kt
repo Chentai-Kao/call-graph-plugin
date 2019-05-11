@@ -16,8 +16,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private val solidLineStroke = BasicStroke(regularLineWidth)
     private val methodAccessColorMap = mapOf<String, Color>(
             PsiModifier.PUBLIC to Colors.GREEN.color,
-            PsiModifier.PROTECTED to Colors.CYAN.color,
-            PsiModifier.PACKAGE_LOCAL to Colors.LIGHT_ORANGE.color,
+            PsiModifier.PROTECTED to Colors.LIGHT_ORANGE.color,
+            PsiModifier.PACKAGE_LOCAL to Colors.BLUE.color,
             PsiModifier.PRIVATE to Colors.RED.color
     )
     private val heatMapColors = listOf(
@@ -32,9 +32,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
             Colors.ORANGE.color,
             Colors.RED.color
     )
-    var canvasPanel: JPanel? = null
     var cameraOrigin = defaultCameraOrigin
-    private var graph: Graph? = null
+    private var graph = Graph()
     private var visibleNodes = setOf<Node>()
     private var visibleEdges = setOf<Edge>()
     private var nodeShapesMap = mutableMapOf<Shape, Node>()
@@ -43,9 +42,6 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private var yZoomRatio = defaultZoomRatio
 
     override fun paintComponent(graphics: Graphics) {
-        if (graph == null) {
-            return
-        }
         super.paintComponent(graphics)
 
         // set up the drawing panel
@@ -108,7 +104,6 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         this.graph = graph
         this.visibleNodes = graph.getNodes()
         this.visibleEdges = graph.getEdges()
-        this.canvasPanel = null
         this.cameraOrigin = this.defaultCameraOrigin
         this.nodeShapesMap = mutableMapOf()
         this.hoveredNode = null
@@ -152,9 +147,9 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     }
 
     fun fitCanvasToView() {
-        val blueprint = this.graph!!.getNodes().associateBy({ it.id }, { it.rawLayoutPoint })
+        val blueprint = this.graph.getNodes().associateBy({ it.id }, { it.rawLayoutPoint })
         val bestFitBlueprint = Utils.fitLayoutToViewport(blueprint)
-        Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph!!)
+        Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph)
         this.cameraOrigin = defaultCameraOrigin
         this.xZoomRatio = defaultZoomRatio
         this.yZoomRatio = defaultZoomRatio
@@ -163,7 +158,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
 
     fun fitCanvasToBestRatio() {
         // set every node coordinate to its original raw layout by GraphViz
-        this.graph!!.getNodes().forEach { it.point = it.rawLayoutPoint }
+        this.graph.getNodes().forEach { it.point = it.rawLayoutPoint }
         this.cameraOrigin = defaultCameraOrigin
         this.xZoomRatio = defaultZoomRatio
         this.yZoomRatio = defaultZoomRatio
@@ -171,11 +166,11 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     }
 
     fun getNodesCount(): Int {
-        return this.graph!!.getNodes().size
+        return this.graph.getNodes().size
     }
 
     fun filterAccessChangeHandler() {
-        this.visibleNodes = this.graph!!.getNodes()
+        this.visibleNodes = this.graph.getNodes()
                 .filter { node ->
                     val method = node.method
                     when {
@@ -187,14 +182,14 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                     }
                 }
                 .toSet()
-        this.visibleEdges = this.graph!!.getEdges()
+        this.visibleEdges = this.graph.getEdges()
                 .filter { this.visibleNodes.contains(it.sourceNode) && this.visibleNodes.contains(it.targetNode) }
                 .toSet()
         repaint()
     }
 
     private fun toCameraView(point: Point2D.Float): Point2D.Float {
-        val canvasSize = this.canvasPanel!!.size
+        val canvasSize = this.callGraphToolWindow.getCanvasSize()
         return Point2D.Float(
                 this.xZoomRatio * point.x * canvasSize.width - this.cameraOrigin.x,
                 this.yZoomRatio * point.y * canvasSize.height - this.cameraOrigin.y

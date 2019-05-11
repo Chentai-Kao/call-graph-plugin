@@ -96,9 +96,8 @@ object Utils {
     fun getDependenciesFromMethod(method: PsiMethod) =
             PsiTreeUtil
                     .findChildrenOfType(method, PsiIdentifier::class.java)
-                    .map { it.context }
-                    .filter { it != null }
-                    .flatMap { it!!.references.toList() }
+                    .mapNotNull { it.context }
+                    .flatMap { it.references.toList() }
                     .map { it.resolve() }
                     .filter { it is PsiMethod }
                     .map { Dependency(method, it as PsiMethod) }
@@ -128,12 +127,11 @@ object Utils {
     }
 
     fun getMethodPackageName(psiMethod: PsiMethod): String {
-        // get class name
-        val psiClass = psiMethod.containingClass
-        val className = psiClass?.qualifiedName ?: ""
         // get package name
         val psiJavaFile = psiMethod.containingFile as PsiJavaFile
         val packageName = psiJavaFile.packageStatement?.packageName ?: ""
+        // get class name
+        val className = psiMethod.containingClass?.qualifiedName ?: ""
         return if (packageName.isBlank() || className.startsWith(packageName)) className else "$packageName.$className"
     }
 
@@ -184,7 +182,7 @@ object Utils {
                     .getToolWindow("Call Graph")
                     .activate {
                         ServiceManager.getService(project, CallGraphToolWindowProjectService::class.java)
-                                .callGraphToolWindow!!
+                                .callGraphToolWindow
                                 .clearFocusedMethods()
                                 .toggleFocusedMethod(psiElement)
                                 .run(buildType)
@@ -329,28 +327,32 @@ object Utils {
     }
 
     private fun getAverageElementDifference(elements: Set<Int>): Float {
-        return if (elements.size < 2) 0f else (elements.max()!! - elements.min()!!) / (elements.size - 1).toFloat()
+        val max = elements.max()
+        val min = elements.min()
+        return if (elements.size < 2 || max == null || min == null) 0f else (max - min) / (elements.size - 1).toFloat()
     }
 
     private fun mergeNormalizedLayouts(blueprints: List<Map<String, Point2D.Float>>): Map<String, Point2D.Float> {
         if (blueprints.isEmpty()) {
             return emptyMap()
         }
-        val blueprintHeights = blueprints
-                .associateBy(
-                        { it },
-                        { blueprint ->
-                            // set padding to the average y grid size of the previous sub-graph (but minimum 0.1)
-                            val yPoints = blueprint.values.map { it.y }
-                            yPoints.max()!! - yPoints.min()!! + normalizedGridSize
-                        }
-                )
-                .toMap()
-        val sortedBlueprints = blueprintHeights
+        val blueprintSizes = blueprints
+                .map { blueprint ->
+                    val xPoints = blueprint.values.map { it.x }
+                    val xMax = xPoints.max() ?: 0f
+                    val xMin = xPoints.min() ?: 0f
+                    val width = xMax - xMin + normalizedGridSize
+                    val yPoints = blueprint.values.map { it.y }
+                    val yMax = yPoints.max() ?: 0f
+                    val yMin = yPoints.min() ?: 0f
+                    val height = yMax - yMin + normalizedGridSize
+                    Triple(blueprint, height, width)
+                }
+        val sortedHeights = blueprintSizes.map { (_, height, _) -> height }.sortedBy { -it }
+        val sortedBlueprints = blueprintSizes
                 .toList()
-                .sortedBy { (_, height) -> -height }
-                .map { it.first }
-        val sortedHeights = blueprintHeights.values.sortedBy { -it }
+                .sortedWith(compareBy({ (_, height, _) -> -height }, { (_, _, width) -> -width }))
+                .map { (blueprint, _, _) -> blueprint }
         val xBaseline = 0.5f
         val yBaseline = 0.5f
         // put the left-most point of the first sub-graph in the view center, by using its y value as central line
@@ -362,13 +364,12 @@ object Utils {
                     // left align the graph by the left-most nodesMap, then centering the baseline
                     val minX = blueprint.values.map { it.x }.min() ?: 0f
                     //noinspection UnnecessaryLocalVariable
-                    val shiftedBlueprint = blueprint.mapValues { (_, point) ->
+                    blueprint.mapValues { (_, point) ->
                         Point2D.Float(
                                 point.x - minX + xBaseline,
                                 point.y + yOffset - yCentralLine + yBaseline
                         )
                     }
-                    shiftedBlueprint
                 }
                 .reduce { blueprintA, blueprintB -> blueprintA + blueprintB }
     }

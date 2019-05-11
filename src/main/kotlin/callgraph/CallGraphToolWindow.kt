@@ -2,6 +2,7 @@ package callgraph
 
 import com.intellij.ide.util.EditorHelper
 import com.intellij.psi.PsiMethod
+import java.awt.Dimension
 import java.awt.event.KeyEvent
 import java.awt.event.KeyListener
 import java.awt.geom.Point2D
@@ -106,8 +107,8 @@ class CallGraphToolWindow {
         this.showOnlyDownstreamButton.addActionListener { run(CanvasConfig.BuildType.DOWNSTREAM) }
         this.showOnlyUpstreamDownstreamButton.addActionListener { run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM) }
         this.viewSourceCodeButton.addActionListener { viewSourceCodeHandler() }
-        this.fitGraphToViewButton.addActionListener { fitGraphToViewButtonHandler() }
-        this.fitGraphToBestRatioButton.addActionListener { fitGraphToBestRatioButtonHandler() }
+        this.fitGraphToViewButton.addActionListener { this.canvas.fitCanvasToView() }
+        this.fitGraphToBestRatioButton.addActionListener { this.canvas.fitCanvasToBestRatio() }
         this.increaseXGridButton.addActionListener { gridSizeButtonHandler(isXGrid = true, isIncrease = true) }
         this.decreaseXGridButton.addActionListener { gridSizeButtonHandler(isXGrid = true, isIncrease = false) }
         this.increaseYGridButton.addActionListener { gridSizeButtonHandler(isXGrid = false, isIncrease = true) }
@@ -118,6 +119,8 @@ class CallGraphToolWindow {
         this.canvas.addMouseListener(mouseEventHandler)
         this.canvas.addMouseMotionListener(mouseEventHandler)
         this.canvas.addMouseWheelListener(mouseEventHandler)
+        this.canvas.isVisible = false
+        this.canvasPanel.add(this.canvas)
     }
 
     fun getContent(): JPanel {
@@ -203,19 +206,24 @@ class CallGraphToolWindow {
         return this.filterAccessPrivateCheckbox.isSelected
     }
 
+    fun getCanvasSize(): Dimension = this.canvasPanel.size
+
     fun run(buildType: CanvasConfig.BuildType) {
         val project = Utils.getActiveProject()
         if (project != null) {
             Utils.runBackgroundTask(project, Runnable {
                 // set up the config object
-                val canvasConfig = CanvasConfig(project, buildType, this.canvas)
-                canvasConfig.selectedModuleName =
-                        this@CallGraphToolWindow.moduleScopeComboBox.selectedItem as String? ?: ""
-                canvasConfig.selectedDirectoryPath = this@CallGraphToolWindow.directoryScopeTextField.text
-                canvasConfig.focusedMethods = this@CallGraphToolWindow.focusedMethods
-                canvasConfig.callGraphToolWindow = this@CallGraphToolWindow
+                val canvasConfig = CanvasConfig(
+                        project,
+                        buildType,
+                        this.canvas,
+                        this@CallGraphToolWindow.moduleScopeComboBox.selectedItem as String? ?: "",
+                        this@CallGraphToolWindow.directoryScopeTextField.text,
+                        this@CallGraphToolWindow.focusedMethods,
+                        this@CallGraphToolWindow
+                )
                 // start building graph
-                setupUiBeforeRun(canvasConfig)
+                setupUiBeforeRun(buildType)
                 this@CallGraphToolWindow.canvasBuilder.build(canvasConfig)
                 setupUiAfterRun()
             })
@@ -260,10 +268,6 @@ class CallGraphToolWindow {
         }
     }
 
-    private fun fitGraphToViewButtonHandler() = this.canvas.fitCanvasToView()
-
-    private fun fitGraphToBestRatioButtonHandler() = this.canvas.fitCanvasToBestRatio()
-
     private fun gridSizeButtonHandler(isXGrid: Boolean, isIncrease: Boolean) {
         val zoomFactor = if (isIncrease) 1.25f else 1 / 1.25f
         val xZoomFactor = if (isXGrid) zoomFactor else 1.0f
@@ -279,19 +283,18 @@ class CallGraphToolWindow {
         this.focusedMethods.forEach { EditorHelper.openInEditor(it) }
     }
 
-    private fun setupUiBeforeRun(canvasConfig: CanvasConfig) {
+    private fun setupUiBeforeRun(buildType: CanvasConfig.BuildType) {
         // focus on the 'graph tab
         this.mainTabbedPanel.getComponentAt(1).isEnabled = true
         this.mainTabbedPanel.selectedIndex = 1
         // stats label
         this.statsLabel.text = "..."
         // build-type label
-        val buildTypeText = canvasConfig.buildType.label
-        when (canvasConfig.buildType) {
+        when (buildType) {
             CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST_LIMITED,
             CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST,
             CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST_LIMITED,
-            CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST -> this.buildTypeLabel.text = buildTypeText
+            CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST -> this.buildTypeLabel.text = buildType.label
             CanvasConfig.BuildType.MODULE_LIMITED,
             CanvasConfig.BuildType.MODULE -> {
                 val moduleName = this.moduleScopeComboBox.selectedItem as String
@@ -306,7 +309,7 @@ class CallGraphToolWindow {
             CanvasConfig.BuildType.DOWNSTREAM,
             CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM -> {
                 val functionNames = this.focusedMethods.joinToString { it.name }
-                this.buildTypeLabel.text = "<html>$buildTypeText of function <b>$functionNames</b></html>"
+                this.buildTypeLabel.text = "<html>${buildType.label} of function <b>$functionNames</b></html>"
             }
         }
         // disable some checkboxes and buttons
@@ -335,18 +338,17 @@ class CallGraphToolWindow {
         // progress bar
         this.loadingProgressBar.isVisible = true
         // clear the canvas panel, ready for new graph
-        this.canvasPanel.removeAll()
+        this.canvas.isVisible = false
     }
 
     private fun setupUiAfterRun() {
+        // hide progress bar
+        this.loadingProgressBar.isVisible = false
         // show the rendered canvas
-        this.canvas.canvasPanel = this.canvasPanel
-        this.canvasPanel.add(this.canvas)
+        this.canvas.isVisible = true
         this.canvasPanel.updateUI()
         // stats label
         this.statsLabel.text = "${this.canvas.getNodesCount()} methods"
-        // hide progress bar
-        this.loadingProgressBar.isVisible = false
         // enable some checkboxes and buttons
         enableFocusedMethodButtons()
         listOf(
@@ -388,10 +390,11 @@ class CallGraphToolWindow {
     }
 
     private fun enableFocusedMethodButtons() {
-        val isEnabled = this.focusedMethods.isNotEmpty()
-        this.showOnlyUpstreamButton.isEnabled = isEnabled
-        this.showOnlyDownstreamButton.isEnabled = isEnabled
-        this.showOnlyUpstreamDownstreamButton.isEnabled = isEnabled
-        this.viewSourceCodeButton.isEnabled = isEnabled
+        listOf(
+                this.showOnlyUpstreamButton,
+                this.showOnlyDownstreamButton,
+                this.showOnlyUpstreamDownstreamButton,
+                this.viewSourceCodeButton
+        ).forEach { it.isEnabled = this.focusedMethods.isNotEmpty() }
     }
 }

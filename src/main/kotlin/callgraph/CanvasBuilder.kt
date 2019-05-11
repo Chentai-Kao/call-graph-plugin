@@ -62,10 +62,10 @@ class CanvasBuilder {
         val methodsToParse = Utils.getMethodsFromFiles(filesToParse)
 
         // parse method dependencies
-        canvasConfig.callGraphToolWindow?.resetProgressBar(methodsToParse.size)
+        canvasConfig.callGraphToolWindow.resetProgressBar(methodsToParse.size)
         val newDependencies = methodsToParse
                 .flatMap {
-                    canvasConfig.callGraphToolWindow?.incrementProgressBar()
+                    canvasConfig.callGraphToolWindow.incrementProgressBar()
                     Utils.getDependenciesFromMethod(it)
                 }
                 .toSet()
