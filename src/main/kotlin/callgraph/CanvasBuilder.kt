@@ -19,7 +19,6 @@ class CanvasBuilder {
         val files = Utils.getSourceCodeFiles(canvasConfig)
         val methods = Utils.getMethodsInScope(canvasConfig, files)
         val dependencyView = Utils.getDependencyView(canvasConfig, methods, dependencies)
-        dependencyView.forEach { dependency -> println("(view) ${dependency.caller.name} -> ${dependency.callee.name}")}
         val graph = buildGraph(methods, dependencyView)
         return renderGraphOnCanvas(canvasConfig.callGraphToolWindow!!, graph)
     }
