@@ -10,7 +10,7 @@ class CanvasBuilder {
     private var fileModifiedTimeCache = mapOf<PsiFile, Long>()
     private var dependenciesCache = emptySet<Dependency>()
 
-    fun build(canvasConfig: CanvasConfig): Canvas {
+    fun build(canvasConfig: CanvasConfig) {
         // cancel existing progress if any
         this.progressIndicator?.cancel()
         this.progressIndicator = ProgressIndicatorProvider.getGlobalProgressIndicator()
@@ -24,7 +24,7 @@ class CanvasBuilder {
         val methods = Utils.getMethodsInScope(canvasConfig, files)
         val dependencyView = Utils.getDependencyView(canvasConfig, methods, dependencies)
         val graph = buildGraph(methods, dependencyView)
-        return renderGraphOnCanvas(canvasConfig.callGraphToolWindow!!, graph)
+        canvasConfig.canvas.reset(graph)
     }
 
     private fun buildGraph(methods: Set<PsiMethod>, dependencyView: Set<Dependency>): Graph {
@@ -37,15 +37,6 @@ class CanvasBuilder {
         }
         Utils.layout(graph)
         return graph
-    }
-
-    private fun renderGraphOnCanvas(callGraphToolWindow: CallGraphToolWindow, graph: Graph): Canvas {
-        val canvas = Canvas(callGraphToolWindow, graph)
-        val mouseEventHandler = MouseEventHandler(canvas)
-        canvas.addMouseListener(mouseEventHandler)
-        canvas.addMouseMotionListener(mouseEventHandler)
-        canvas.addMouseWheelListener(mouseEventHandler)
-        return canvas
     }
 
     private fun getDependencies(

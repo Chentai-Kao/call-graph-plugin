@@ -3,7 +3,7 @@ package callgraph
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiMethod
 
-data class CanvasConfig(val project: Project, val buildType: BuildType) {
+data class CanvasConfig(val project: Project, val buildType: BuildType, val canvas: Canvas) {
     enum class BuildType(val label: String) {
         WHOLE_PROJECT_WITH_TEST_LIMITED("Whole project (test files included), limited upstream/downstream scope"),
         WHOLE_PROJECT_WITHOUT_TEST_LIMITED("Whole project (test files excluded), limited upstream/downstream scope"),

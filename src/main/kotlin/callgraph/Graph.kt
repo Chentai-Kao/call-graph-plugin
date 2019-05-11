@@ -6,8 +6,8 @@ import java.util.*
 
 data class Graph(
         val nodesMap: MutableMap<String, Node> = mutableMapOf(),
-        val edgesMap: MutableMap<String, Edge> = mutableMapOf()) {
-
+        val edgesMap: MutableMap<String, Edge> = mutableMapOf()
+) {
     val connectedComponents: Set<Graph> by lazy {
         val visitedNodes = mutableSetOf<Node>()
         this.getNodes()
@@ -45,17 +45,11 @@ data class Graph(
         }
     }
 
-    fun getNode(nodeId: String): Node {
-        return this.nodesMap.getValue(nodeId)
-    }
+    fun getNode(nodeId: String) = this.nodesMap.getValue(nodeId)
 
-    fun getNodes(): Collection<Node> {
-        return this.nodesMap.values
-    }
+    fun getNodes() = this.nodesMap.values.toSet()
 
-    fun getEdges(): Collection<Edge> {
-        return this.edgesMap.values
-    }
+    fun getEdges() = this.edgesMap.values.toSet()
 
     private fun traverseBfs(root: Node, visitedNodes: MutableSet<Node>): Set<Node> {
         if (visitedNodes.contains(root)) {
@@ -75,11 +69,7 @@ data class Graph(
         return path
     }
 
-    private fun getNodeHash(element: PsiElement): String {
-        return element.hashCode().toString()
-    }
+    private fun getNodeHash(element: PsiElement) = element.hashCode().toString()
 
-    private fun getEdgeHash(sourceNodeId: String, targetNodeId: String): String {
-        return "$sourceNodeId-$targetNodeId"
-    }
+    private fun getEdgeHash(sourceNodeId: String, targetNodeId: String) = "$sourceNodeId-$targetNodeId"
 }

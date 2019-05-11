@@ -8,17 +8,9 @@ import java.awt.geom.Line2D
 import java.awt.geom.Point2D
 import javax.swing.JPanel
 
-class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val graph: Graph): JPanel() {
-    var canvasPanel: JPanel? = null
-    private var visibleNodes = graph.getNodes()
-    private var visibleEdges = graph.getEdges()
-    private var nodeShapesMap = mutableMapOf<Shape, Node>()
-    private var hoveredNode: Node? = null
+class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private val defaultCameraOrigin = Point2D.Float(0f, 0f)
-    var cameraOrigin: Point2D.Float = defaultCameraOrigin
     private val defaultZoomRatio = 1.0f
-    private var xZoomRatio = defaultZoomRatio
-    private var yZoomRatio = defaultZoomRatio
     private val nodeRadius = 5f
     private val regularLineWidth = 1.0f
     private val solidLineStroke = BasicStroke(regularLineWidth)
@@ -40,8 +32,20 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
             Colors.ORANGE.color,
             Colors.RED.color
     )
+    var canvasPanel: JPanel? = null
+    var cameraOrigin = defaultCameraOrigin
+    private var graph: Graph? = null
+    private var visibleNodes = setOf<Node>()
+    private var visibleEdges = setOf<Edge>()
+    private var nodeShapesMap = mutableMapOf<Shape, Node>()
+    private var hoveredNode: Node? = null
+    private var xZoomRatio = defaultZoomRatio
+    private var yZoomRatio = defaultZoomRatio
 
     override fun paintComponent(graphics: Graphics) {
+        if (graph == null) {
+            return
+        }
         super.paintComponent(graphics)
 
         // set up the drawing panel
@@ -100,6 +104,18 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
                 }
     }
 
+    fun reset(graph: Graph) {
+        this.graph = graph
+        this.visibleNodes = graph.getNodes()
+        this.visibleEdges = graph.getEdges()
+        this.canvasPanel = null
+        this.cameraOrigin = this.defaultCameraOrigin
+        this.nodeShapesMap = mutableMapOf()
+        this.hoveredNode = null
+        this.xZoomRatio = this.defaultZoomRatio
+        this.yZoomRatio = this.defaultZoomRatio
+    }
+
     fun setHoveredNode(node: Node?): Canvas {
         if (this.hoveredNode !== node) {
             this.hoveredNode = node
@@ -136,9 +152,9 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
     }
 
     fun fitCanvasToView() {
-        val blueprint = this.graph.getNodes().associateBy({ it.id }, { it.rawLayoutPoint })
+        val blueprint = this.graph!!.getNodes().associateBy({ it.id }, { it.rawLayoutPoint })
         val bestFitBlueprint = Utils.fitLayoutToViewport(blueprint)
-        Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph)
+        Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph!!)
         this.cameraOrigin = defaultCameraOrigin
         this.xZoomRatio = defaultZoomRatio
         this.yZoomRatio = defaultZoomRatio
@@ -147,7 +163,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
 
     fun fitCanvasToBestRatio() {
         // set every node coordinate to its original raw layout by GraphViz
-        this.graph.getNodes().forEach { it.point = it.rawLayoutPoint }
+        this.graph!!.getNodes().forEach { it.point = it.rawLayoutPoint }
         this.cameraOrigin = defaultCameraOrigin
         this.xZoomRatio = defaultZoomRatio
         this.yZoomRatio = defaultZoomRatio
@@ -155,11 +171,11 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
     }
 
     fun getNodesCount(): Int {
-        return this.graph.getNodes().size
+        return this.graph!!.getNodes().size
     }
 
     fun filterAccessChangeHandler() {
-        this.visibleNodes = this.graph.getNodes()
+        this.visibleNodes = this.graph!!.getNodes()
                 .filter { node ->
                     val method = node.method
                     when {
@@ -171,7 +187,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow, private val g
                     }
                 }
                 .toSet()
-        this.visibleEdges = this.graph.getEdges()
+        this.visibleEdges = this.graph!!.getEdges()
                 .filter { this.visibleNodes.contains(it.sourceNode) && this.visibleNodes.contains(it.targetNode) }
                 .toSet()
         repaint()

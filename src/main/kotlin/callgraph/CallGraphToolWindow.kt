@@ -43,7 +43,7 @@ class CallGraphToolWindow {
     private lateinit var filterAccessPrivateCheckbox: JCheckBox
 
     private val canvasBuilder = CanvasBuilder()
-    private var canvas: Canvas? = null
+    private val canvas: Canvas = Canvas(this)
     private val focusedMethods = mutableSetOf<PsiMethod>()
     private val filterAccessCheckboxes = listOf(
             this.filterAccessPublicCheckbox,
@@ -86,10 +86,10 @@ class CallGraphToolWindow {
             }
 
             override fun keyReleased(keyEvent: KeyEvent) {
-                canvas!!.repaint()
+                this@CallGraphToolWindow.canvas.repaint()
             }
         })
-        this.filterAccessCheckboxes.forEach { it.addActionListener { this.canvas!!.filterAccessChangeHandler() } }
+        this.filterAccessCheckboxes.forEach { it.addActionListener { this.canvas.filterAccessChangeHandler() } }
 
         // click handlers for buttons
         this.projectScopeButton.addActionListener { projectScopeButtonHandler() }
@@ -99,9 +99,9 @@ class CallGraphToolWindow {
             this.focusedMethods.clear()
             run(getSelectedBuildType())
         }
-        this.viewPackageNameComboBox.addActionListener { this.canvas!!.repaint() }
-        this.viewFilePathComboBox.addActionListener { this.canvas!!.repaint() }
-        this.nodeColorComboBox.addActionListener { this.canvas!!.repaint() }
+        this.viewPackageNameComboBox.addActionListener { this.canvas.repaint() }
+        this.viewFilePathComboBox.addActionListener { this.canvas.repaint() }
+        this.nodeColorComboBox.addActionListener { this.canvas.repaint() }
         this.showOnlyUpstreamButton.addActionListener { run(CanvasConfig.BuildType.UPSTREAM) }
         this.showOnlyDownstreamButton.addActionListener { run(CanvasConfig.BuildType.DOWNSTREAM) }
         this.showOnlyUpstreamDownstreamButton.addActionListener { run(CanvasConfig.BuildType.UPSTREAM_DOWNSTREAM) }
@@ -112,6 +112,12 @@ class CallGraphToolWindow {
         this.decreaseXGridButton.addActionListener { gridSizeButtonHandler(isXGrid = true, isIncrease = false) }
         this.increaseYGridButton.addActionListener { gridSizeButtonHandler(isXGrid = false, isIncrease = true) }
         this.decreaseYGridButton.addActionListener { gridSizeButtonHandler(isXGrid = false, isIncrease = false) }
+
+        // attach event listeners to canvas
+        val mouseEventHandler = MouseEventHandler(this.canvas)
+        this.canvas.addMouseListener(mouseEventHandler)
+        this.canvas.addMouseMotionListener(mouseEventHandler)
+        this.canvas.addMouseWheelListener(mouseEventHandler)
     }
 
     fun getContent(): JPanel {
@@ -200,17 +206,17 @@ class CallGraphToolWindow {
     fun run(buildType: CanvasConfig.BuildType) {
         val project = Utils.getActiveProject()
         if (project != null) {
-            val callGraphToolWindow = this
             Utils.runBackgroundTask(project, Runnable {
                 // set up the config object
-                val canvasConfig = CanvasConfig(project, buildType)
-                canvasConfig.selectedModuleName = callGraphToolWindow.moduleScopeComboBox.selectedItem as String? ?: ""
-                canvasConfig.selectedDirectoryPath = callGraphToolWindow.directoryScopeTextField.text
-                canvasConfig.focusedMethods = callGraphToolWindow.focusedMethods
-                canvasConfig.callGraphToolWindow = callGraphToolWindow
+                val canvasConfig = CanvasConfig(project, buildType, this.canvas)
+                canvasConfig.selectedModuleName =
+                        this@CallGraphToolWindow.moduleScopeComboBox.selectedItem as String? ?: ""
+                canvasConfig.selectedDirectoryPath = this@CallGraphToolWindow.directoryScopeTextField.text
+                canvasConfig.focusedMethods = this@CallGraphToolWindow.focusedMethods
+                canvasConfig.callGraphToolWindow = this@CallGraphToolWindow
                 // start building graph
                 setupUiBeforeRun(canvasConfig)
-                callGraphToolWindow.canvas = callGraphToolWindow.canvasBuilder.build(canvasConfig)
+                this@CallGraphToolWindow.canvasBuilder.build(canvasConfig)
                 setupUiAfterRun()
             })
         }
@@ -254,17 +260,9 @@ class CallGraphToolWindow {
         }
     }
 
-    private fun fitGraphToViewButtonHandler() {
-        if (this.canvas != null) {
-            this.canvas!!.fitCanvasToView()
-        }
-    }
+    private fun fitGraphToViewButtonHandler() = this.canvas.fitCanvasToView()
 
-    private fun fitGraphToBestRatioButtonHandler() {
-        if (this.canvas != null) {
-            this.canvas!!.fitCanvasToBestRatio()
-        }
-    }
+    private fun fitGraphToBestRatioButtonHandler() = this.canvas.fitCanvasToBestRatio()
 
     private fun gridSizeButtonHandler(isXGrid: Boolean, isIncrease: Boolean) {
         val zoomFactor = if (isIncrease) 1.25f else 1 / 1.25f
@@ -274,7 +272,7 @@ class CallGraphToolWindow {
                 0.5f * this.canvasPanel.width.toFloat(),
                 0.5f * this.canvasPanel.height.toFloat()
         )
-        this.canvas!!.zoomAtPoint(zoomCenter, xZoomFactor, yZoomFactor)
+        this.canvas.zoomAtPoint(zoomCenter, xZoomFactor, yZoomFactor)
     }
 
     private fun viewSourceCodeHandler() {
@@ -342,11 +340,11 @@ class CallGraphToolWindow {
 
     private fun setupUiAfterRun() {
         // show the rendered canvas
-        this.canvas!!.canvasPanel = this.canvasPanel
+        this.canvas.canvasPanel = this.canvasPanel
         this.canvasPanel.add(this.canvas)
         this.canvasPanel.updateUI()
         // stats label
-        this.statsLabel.text = "${this.canvas!!.getNodesCount()} methods"
+        this.statsLabel.text = "${this.canvas.getNodesCount()} methods"
         // hide progress bar
         this.loadingProgressBar.isVisible = false
         // enable some checkboxes and buttons
