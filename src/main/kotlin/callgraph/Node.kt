@@ -6,6 +6,10 @@ import java.awt.geom.Point2D
 data class Node(val id: String, val method: PsiMethod) {
     val outEdges = mutableMapOf<String, Edge>()
     val inEdges = mutableMapOf<String, Edge>()
+    val filePath = Utils.getMethodFilePath(method) ?: "(no file)"
+    val packageName = Utils.getMethodPackageName(method)
+    val signature = Utils.getMethodSignature(method)
+
     var point = Point2D.Float()
     var rawLayoutPoint = Point2D.Float()
 

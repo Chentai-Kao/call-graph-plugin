@@ -269,16 +269,14 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         val labels = mutableListOf<Pair<String, Color>>()
         // file path
         if (this.callGraphToolWindow.isRenderFunctionFilePath(isNodeHovered)) {
-            val filePath = Utils.getMethodFilePath(node.method) ?: "(no file)"
-            labels.add(filePath to Colors.UN_HIGHLIGHTED_COLOR.color)
+            labels.add(node.filePath to Colors.UN_HIGHLIGHTED_COLOR.color)
         }
         // package name
         if (this.callGraphToolWindow.isRenderFunctionPackageName(isNodeHovered)) {
-            val packageName = Utils.getMethodPackageName(node.method)
-            labels.add(packageName to Colors.UN_HIGHLIGHTED_COLOR.color)
+            labels.add(node.packageName to Colors.UN_HIGHLIGHTED_COLOR.color)
         }
         // function signature
-        val signature = if (isNodeHovered) Utils.getMethodSignature(node.method) else node.method.name
+        val signature = if (isNodeHovered) node.signature else node.method.name
         labels.add(signature to signatureColor)
         return labels
     }
