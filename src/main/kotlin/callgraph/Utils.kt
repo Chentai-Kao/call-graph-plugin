@@ -222,7 +222,7 @@ object Utils {
                     .toSet()
 
     fun applyLayoutBlueprintToGraph(blueprint: Map<String, Point2D.Float>, graph: Graph) {
-        blueprint.forEach { (nodeId, point) -> graph.getNode(nodeId).point = point }
+        blueprint.forEach { (nodeId, point) -> graph.getNode(nodeId).point.setLocation(point) }
     }
 
     fun getSourceCodeRoots(canvasConfig: CanvasConfig) =
@@ -305,8 +305,8 @@ object Utils {
         }
         val gridSize = getGridSize(blueprint)
         val desiredGridSize = Point2D.Float(normalizedGridSize, normalizedGridSize)
-        val xFactor = if (gridSize.x == 0f) 1.0f else desiredGridSize.x / gridSize.x
-        val yFactor = if (gridSize.y == 0f) 1.0f else desiredGridSize.y / gridSize.y
+        val xFactor = if (gridSize.x == 0f) 1f else desiredGridSize.x / gridSize.x
+        val yFactor = if (gridSize.y == 0f) 1f else desiredGridSize.y / gridSize.y
         return blueprint.mapValues { (_, point) -> Point2D.Float(point.x * xFactor, point.y * yFactor) }
     }
 
@@ -350,7 +350,7 @@ object Utils {
         val xBaseline = 0.5f
         val yBaseline = 0.5f
         // put the left-most point of the first sub-graph in the view center, by using its y value as central line
-        val yCentralLine = sortedBlueprints.first().values.minBy { it.x }?.y ?: 0.0f
+        val yCentralLine = sortedBlueprints.first().values.minBy { it.x }?.y ?: 0f
         return sortedBlueprints
                 .mapIndexed { index, blueprint ->
                     // calculate the y-offset of this sub-graph (by summing up all the height of previous sub-graphs)
@@ -369,7 +369,7 @@ object Utils {
     }
 
     private fun applyRawLayoutBlueprintToGraph(blueprint: Map<String, Point2D.Float>, graph: Graph) {
-        blueprint.forEach { (nodeId, point) -> graph.getNode(nodeId).rawLayoutPoint = point }
+        blueprint.forEach { (nodeId, point) -> graph.getNode(nodeId).rawLayoutPoint.setLocation(point) }
     }
 
     private fun getSelectedModules(project: Project, selectedModuleName: String): Set<Module> {

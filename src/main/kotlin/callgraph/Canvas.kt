@@ -10,10 +10,15 @@ import javax.swing.JPanel
 
 class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private val defaultCameraOrigin = Point2D.Float(0f, 0f)
-    private val defaultZoomRatio = 1.0f
+    val cameraOrigin = defaultCameraOrigin
+    private val defaultZoomRatio = 1f
+    private val zoomRatio = Point2D.Float(defaultZoomRatio, defaultZoomRatio)
     private val nodeRadius = 5f
-    private val regularLineWidth = 1.0f
+    private val regularLineWidth = 1f
     private val solidLineStroke = BasicStroke(regularLineWidth)
+    private val visibleNodes = mutableSetOf<Node>()
+    private val visibleEdges = mutableSetOf<Edge>()
+    private val nodeShapesMap = mutableMapOf<Shape, Node>()
     private val methodAccessColorMap = mapOf(
             PsiModifier.PUBLIC to Colors.GREEN.color,
             PsiModifier.PROTECTED to Colors.LIGHT_ORANGE.color,
@@ -38,14 +43,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
             Colors.ORANGE.color,
             Colors.RED.color
     )
-    var cameraOrigin = defaultCameraOrigin
     private var graph = Graph()
-    private var visibleNodes = setOf<Node>()
-    private var visibleEdges = setOf<Edge>()
-    private var nodeShapesMap = mutableMapOf<Shape, Node>()
     private var hoveredNode: Node? = null
-    private var xZoomRatio = defaultZoomRatio
-    private var yZoomRatio = defaultZoomRatio
 
     override fun paintComponent(graphics: Graphics) {
         super.paintComponent(graphics)
@@ -86,7 +85,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         unHighlightedNodes.forEach { drawNodeLabels(graphics2D, it, Colors.NEUTRAL_COLOR.color, false) }
 
         // draw un-highlighted nodesMap (upstream/downstream nodesMap are excluded)
-        this.nodeShapesMap = mutableMapOf()
+        this.nodeShapesMap.clear()
         unHighlightedNodes
                 .filter { !upstreamNodes.contains(it) && !downstreamNodes.contains(it) }
                 .forEach { drawNode(graphics2D, it, Colors.UN_HIGHLIGHTED_COLOR.color) }
@@ -119,13 +118,15 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
 
     fun reset(graph: Graph) {
         this.graph = graph
-        this.visibleNodes = graph.getNodes()
-        this.visibleEdges = graph.getEdges()
-        this.cameraOrigin = this.defaultCameraOrigin
-        this.nodeShapesMap = mutableMapOf()
+        this.visibleNodes.clear()
+        this.visibleNodes.addAll(graph.getNodes())
+        this.visibleEdges.clear()
+        this.visibleEdges.addAll(graph.getEdges())
+        this.nodeShapesMap.clear()
         this.hoveredNode = null
-        this.xZoomRatio = this.defaultZoomRatio
-        this.yZoomRatio = this.defaultZoomRatio
+        this.cameraOrigin.setLocation(defaultCameraOrigin)
+        this.zoomRatio.x = this.defaultZoomRatio
+        this.zoomRatio.y = this.defaultZoomRatio
     }
 
     fun setHoveredNode(node: Node?): Canvas {
@@ -147,12 +148,12 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     }
 
     fun zoomAtPoint(point: Point2D.Float, xZoomFactor: Float, yZoomFactor: Float) {
-        this.cameraOrigin = Point2D.Float(
+        this.cameraOrigin.setLocation(
                 xZoomFactor * this.cameraOrigin.x + (xZoomFactor - 1) * point.x,
                 yZoomFactor * this.cameraOrigin.y + (yZoomFactor - 1) * point.y
         )
-        this.xZoomRatio *= xZoomFactor
-        this.yZoomRatio *= yZoomFactor
+        this.zoomRatio.x *= xZoomFactor
+        this.zoomRatio.y *= yZoomFactor
         repaint()
     }
 
@@ -167,25 +168,26 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         val blueprint = this.graph.getNodes().associateBy({ it.id }, { it.rawLayoutPoint })
         val bestFitBlueprint = Utils.fitLayoutToViewport(blueprint)
         Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph)
-        this.cameraOrigin = defaultCameraOrigin
-        this.xZoomRatio = defaultZoomRatio
-        this.yZoomRatio = defaultZoomRatio
+        this.cameraOrigin.setLocation(defaultCameraOrigin)
+        this.zoomRatio.x = defaultZoomRatio
+        this.zoomRatio.y = defaultZoomRatio
         repaint()
     }
 
     fun fitCanvasToBestRatio() {
         // set every node coordinate to its original raw layout by GraphViz
-        this.graph.getNodes().forEach { it.point = it.rawLayoutPoint }
-        this.cameraOrigin = defaultCameraOrigin
-        this.xZoomRatio = defaultZoomRatio
-        this.yZoomRatio = defaultZoomRatio
+        this.graph.getNodes().forEach { it.point.setLocation(it.rawLayoutPoint) }
+        this.cameraOrigin.setLocation(defaultCameraOrigin)
+        this.zoomRatio.x = defaultZoomRatio
+        this.zoomRatio.y = defaultZoomRatio
         repaint()
     }
 
     fun getNodesCount() = this.graph.getNodes().size
 
     fun filterChangeHandler() {
-        this.visibleNodes = this.graph.getNodes()
+        this.visibleNodes.clear()
+        this.visibleNodes.addAll(this.graph.getNodes()
                 .filter { node ->
                     val method = node.method
                     val isVisibleAccessLevel = when {
@@ -199,19 +201,18 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                     val isVisibleExternal = !isExternalMethod || this.callGraphToolWindow.isFilterExternalChecked()
 
                     isVisibleAccessLevel && isVisibleExternal
-                }
-                .toSet()
-        this.visibleEdges = this.graph.getEdges()
-                .filter { this.visibleNodes.contains(it.sourceNode) && this.visibleNodes.contains(it.targetNode) }
-                .toSet()
+                })
+        this.visibleEdges.clear()
+        this.visibleEdges.addAll(graph.getEdges()
+                .filter { this.visibleNodes.contains(it.sourceNode) && this.visibleNodes.contains(it.targetNode) })
         repaint()
     }
 
     private fun toCameraView(point: Point2D.Float): Point2D.Float {
         val canvasSize = this.callGraphToolWindow.getCanvasSize()
         return Point2D.Float(
-                this.xZoomRatio * point.x * canvasSize.width - this.cameraOrigin.x,
-                this.yZoomRatio * point.y * canvasSize.height - this.cameraOrigin.y
+                this.zoomRatio.x * point.x * canvasSize.width - this.cameraOrigin.x,
+                this.zoomRatio.y * point.y * canvasSize.height - this.cameraOrigin.y
         )
     }
 
@@ -404,8 +405,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                 loopUpperLeft.y,
                 selfLoopDiameter,
                 selfLoopDiameter,
-                90.0f,
-                180.0f,
+                90f,
+                180f,
                 Arc2D.OPEN
         )
         val downstreamHalfArc = Arc2D.Float(
@@ -413,8 +414,8 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                 loopUpperLeft.y,
                 selfLoopDiameter,
                 selfLoopDiameter,
-                270.0f,
-                180.0f,
+                270f,
+                180f,
                 Arc2D.OPEN
         )
         val strokedUpstreamHalfShape = this.solidLineStroke.createStrokedShape(upstreamHalfArc)

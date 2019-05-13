@@ -4,7 +4,7 @@ import java.awt.event.*
 import java.awt.geom.Point2D
 
 class MouseEventHandler(private val canvas: Canvas): MouseListener, MouseMotionListener, MouseWheelListener {
-    private var lastMousePosition = Point2D.Float()
+    private val lastMousePosition = Point2D.Float()
 
     override fun mouseClicked(event: MouseEvent) {
         val node = this.canvas.getNodeUnderPoint(event.point)
@@ -16,7 +16,7 @@ class MouseEventHandler(private val canvas: Canvas): MouseListener, MouseMotionL
     }
 
     override fun mousePressed(event: MouseEvent) {
-        this.lastMousePosition = Point2D.Float(event.x.toFloat(), event.y.toFloat())
+        this.lastMousePosition.setLocation(event.x.toFloat(), event.y.toFloat())
     }
 
     override fun mouseReleased(event: MouseEvent) {
@@ -36,9 +36,9 @@ class MouseEventHandler(private val canvas: Canvas): MouseListener, MouseMotionL
                     currentCameraOrigin.x - currentMousePosition.x + this.lastMousePosition.x,
                     currentCameraOrigin.y - currentMousePosition.y + this.lastMousePosition.y
             )
-            this.canvas.cameraOrigin = newCameraOrigin
+            this.canvas.cameraOrigin.setLocation(newCameraOrigin)
             this.canvas.repaint()
-            this.lastMousePosition = currentMousePosition
+            this.lastMousePosition.setLocation(currentMousePosition)
         }
     }
 

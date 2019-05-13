@@ -9,9 +9,8 @@ data class Node(val id: String, val method: PsiMethod) {
     val filePath = Utils.getMethodFilePath(method) ?: "(no file)"
     val packageName = Utils.getMethodPackageName(method)
     val signature = Utils.getMethodSignature(method)
-
-    var point = Point2D.Float()
-    var rawLayoutPoint = Point2D.Float()
+    val point = Point2D.Float()
+    val rawLayoutPoint = Point2D.Float()
 
     fun addInEdge(edge: Edge) {
         if (!this.inEdges.containsKey(edge.id)) {

@@ -260,8 +260,8 @@ class CallGraphToolWindow {
 
     private fun gridSizeButtonHandler(isXGrid: Boolean, isIncrease: Boolean) {
         val zoomFactor = if (isIncrease) 1.25f else 1 / 1.25f
-        val xZoomFactor = if (isXGrid) zoomFactor else 1.0f
-        val yZoomFactor = if (isXGrid) 1.0f else zoomFactor
+        val xZoomFactor = if (isXGrid) zoomFactor else 1f
+        val yZoomFactor = if (isXGrid) 1f else zoomFactor
         val zoomCenter = Point2D.Float(
                 0.5f * this.canvasPanel.width.toFloat(),
                 0.5f * this.canvasPanel.height.toFloat()

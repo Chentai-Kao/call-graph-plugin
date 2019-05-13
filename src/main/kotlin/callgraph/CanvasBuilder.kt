@@ -6,8 +6,9 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiMethod
 
 class CanvasBuilder {
+    private val fileModifiedTimeCache = mutableMapOf<PsiFile, Long>()
+
     private var progressIndicator: ProgressIndicator? = null
-    private var fileModifiedTimeCache = mapOf<PsiFile, Long>()
     private var dependenciesCache = emptySet<Dependency>()
 
     fun build(canvasConfig: CanvasConfig) {
@@ -73,7 +74,8 @@ class CanvasBuilder {
 
         // cache the dependencies for next use
         this.dependenciesCache = dependencies
-        this.fileModifiedTimeCache = allFiles.associateBy({ it }, { it.modificationStamp })
+        this.fileModifiedTimeCache.clear()
+        this.fileModifiedTimeCache.putAll(allFiles.associateBy({ it }, { it.modificationStamp }))
 
         return dependencies
     }
