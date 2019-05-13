@@ -43,6 +43,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
             Colors.ORANGE.color,
             Colors.RED.color
     )
+
     private var graph = Graph()
     private var hoveredNode: Node? = null
 
@@ -125,8 +126,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         this.nodeShapesMap.clear()
         this.hoveredNode = null
         this.cameraOrigin.setLocation(defaultCameraOrigin)
-        this.zoomRatio.x = this.defaultZoomRatio
-        this.zoomRatio.y = this.defaultZoomRatio
+        this.zoomRatio.setLocation(this.defaultZoomRatio, this.defaultZoomRatio)
     }
 
     fun setHoveredNode(node: Node?): Canvas {
@@ -169,8 +169,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         val bestFitBlueprint = Utils.fitLayoutToViewport(blueprint)
         Utils.applyLayoutBlueprintToGraph(bestFitBlueprint, this.graph)
         this.cameraOrigin.setLocation(defaultCameraOrigin)
-        this.zoomRatio.x = defaultZoomRatio
-        this.zoomRatio.y = defaultZoomRatio
+        this.zoomRatio.setLocation(defaultZoomRatio, defaultZoomRatio)
         repaint()
     }
 
@@ -178,8 +177,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         // set every node coordinate to its original raw layout by GraphViz
         this.graph.getNodes().forEach { it.point.setLocation(it.rawLayoutPoint) }
         this.cameraOrigin.setLocation(defaultCameraOrigin)
-        this.zoomRatio.x = defaultZoomRatio
-        this.zoomRatio.y = defaultZoomRatio
+        this.zoomRatio.setLocation(defaultZoomRatio, defaultZoomRatio)
         repaint()
     }
 

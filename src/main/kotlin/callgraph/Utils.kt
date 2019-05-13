@@ -156,14 +156,13 @@ object Utils {
     fun fitLayoutToViewport(blueprint: Map<String, Point2D.Float>): Map<String, Point2D.Float> {
         val maxPoint = blueprint.values.reduce { a, b -> Point2D.Float(maxOf(a.x, b.x), maxOf(a.y, b.y)) }
         val minPoint = blueprint.values.reduce { a, b -> Point2D.Float(minOf(a.x, b.x), minOf(a.y, b.y)) }
-        val xSize = maxPoint.x - minPoint.x
-        val ySize = maxPoint.y - minPoint.y
+        val graphSize = Point2D.Float(maxPoint.x - minPoint.x, maxPoint.y - minPoint.y)
         val bestFitBaseline = 0.1f // make the best fit window between 0.1 - 0.9 of the viewport
         val bestFitSize = 1 - 2 * bestFitBaseline
         return blueprint.mapValues { (_, point) ->
             Point2D.Float(
-                    (point.x - minPoint.x) / xSize * bestFitSize + bestFitBaseline,
-                    (point.y - minPoint.y) / ySize * bestFitSize + bestFitBaseline
+                    (point.x - minPoint.x) / graphSize.x * bestFitSize + bestFitBaseline,
+                    (point.y - minPoint.y) / graphSize.y * bestFitSize + bestFitBaseline
             )
         }
     }
@@ -333,13 +332,11 @@ object Utils {
         val blueprintSizes = blueprints
                 .map { blueprint ->
                     val xPoints = blueprint.values.map { it.x }
-                    val xMax = xPoints.max() ?: 0f
-                    val xMin = xPoints.min() ?: 0f
-                    val width = xMax - xMin + normalizedGridSize
                     val yPoints = blueprint.values.map { it.y }
-                    val yMax = yPoints.max() ?: 0f
-                    val yMin = yPoints.min() ?: 0f
-                    val height = yMax - yMin + normalizedGridSize
+                    val max = Point2D.Float(xPoints.max() ?: 0f, yPoints.max() ?: 0f)
+                    val min = Point2D.Float(xPoints.min() ?: 0f, yPoints.min() ?: 0f)
+                    val width = max.x - min.x + normalizedGridSize
+                    val height = max.y - min.y + normalizedGridSize
                     Triple(blueprint, height, width)
                 }
         val sortedHeights = blueprintSizes.map { (_, height, _) -> height }.sortedBy { -it }
@@ -347,8 +344,7 @@ object Utils {
                 .toList()
                 .sortedWith(compareBy({ (_, height, _) -> -height }, { (_, _, width) -> -width }))
                 .map { (blueprint, _, _) -> blueprint }
-        val xBaseline = 0.5f
-        val yBaseline = 0.5f
+        val baseline = Point2D.Float(0.5f, 0.5f)
         // put the left-most point of the first sub-graph in the view center, by using its y value as central line
         val yCentralLine = sortedBlueprints.first().values.minBy { it.x }?.y ?: 0f
         return sortedBlueprints
@@ -360,8 +356,8 @@ object Utils {
                     //noinspection UnnecessaryLocalVariable
                     blueprint.mapValues { (_, point) ->
                         Point2D.Float(
-                                point.x - minX + xBaseline,
-                                point.y + yOffset - yCentralLine + yBaseline
+                                point.x - minX + baseline.x,
+                                point.y + yOffset - yCentralLine + baseline.y
                         )
                     }
                 }
