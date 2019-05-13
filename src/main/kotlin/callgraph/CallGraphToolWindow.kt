@@ -38,6 +38,7 @@ class CallGraphToolWindow {
     private lateinit var nodeSelectionComboBox: JComboBox<String>
     private lateinit var searchTextField: JTextField
     private lateinit var nodeColorComboBox: JComboBox<String>
+    private lateinit var filterExternalCheckbox: JCheckBox
     private lateinit var filterAccessPublicCheckbox: JCheckBox
     private lateinit var filterAccessProtectedCheckbox: JCheckBox
     private lateinit var filterAccessPackageLocalCheckbox: JCheckBox
@@ -46,7 +47,8 @@ class CallGraphToolWindow {
     private val canvasBuilder = CanvasBuilder()
     private val canvas: Canvas = Canvas(this)
     private val focusedMethods = mutableSetOf<PsiMethod>()
-    private val filterAccessCheckboxes = listOf(
+    private val filterCheckboxes = listOf(
+            this.filterExternalCheckbox,
             this.filterAccessPublicCheckbox,
             this.filterAccessProtectedCheckbox,
             this.filterAccessPackageLocalCheckbox,
@@ -90,7 +92,7 @@ class CallGraphToolWindow {
                 this@CallGraphToolWindow.canvas.repaint()
             }
         })
-        this.filterAccessCheckboxes.forEach { it.addActionListener { this.canvas.filterAccessChangeHandler() } }
+        this.filterCheckboxes.forEach { it.addActionListener { this.canvas.filterChangeHandler() } }
 
         // click handlers for buttons
         this.projectScopeButton.addActionListener { projectScopeButtonHandler() }
@@ -123,13 +125,9 @@ class CallGraphToolWindow {
         this.canvasPanel.add(this.canvas)
     }
 
-    fun getContent(): JPanel {
-        return this.callGraphToolWindowContent
-    }
+    fun getContent() = this.callGraphToolWindowContent
 
-    fun isFocusedMethod(method: PsiMethod): Boolean {
-        return this.focusedMethods.contains(method)
-    }
+    fun isFocusedMethod(method: PsiMethod) = this.focusedMethods.contains(method)
 
     fun toggleFocusedMethod(method: PsiMethod): CallGraphToolWindow {
         if (this.focusedMethods.contains(method)) {
@@ -182,29 +180,19 @@ class CallGraphToolWindow {
         return searchQuery.isNotEmpty() && text.toLowerCase().contains(searchQuery)
     }
 
-    fun isNodeColorByAccess(): Boolean {
-        return getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_ACCESS
-    }
+    fun isNodeColorByAccess() = getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_ACCESS
 
-    fun isNodeColorByClassName(): Boolean {
-        return getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_CLASS
-    }
+    fun isNodeColorByClassName() = getSelectedComboBoxOption(this.nodeColorComboBox) == ComboBoxOptions.NODE_COLOR_CLASS
 
-    fun isFilterAccessPublicChecked(): Boolean {
-        return this.filterAccessPublicCheckbox.isSelected
-    }
+    fun isFilterExternalChecked() = this.filterExternalCheckbox.isSelected
 
-    fun isFilterAccessProtectedChecked(): Boolean {
-        return this.filterAccessProtectedCheckbox.isSelected
-    }
+    fun isFilterAccessPublicChecked() = this.filterAccessPublicCheckbox.isSelected
 
-    fun isFilterAccessPackageLocalChecked(): Boolean {
-        return this.filterAccessPackageLocalCheckbox.isSelected
-    }
+    fun isFilterAccessProtectedChecked() = this.filterAccessProtectedCheckbox.isSelected
 
-    fun isFilterAccessPrivateChecked(): Boolean {
-        return this.filterAccessPrivateCheckbox.isSelected
-    }
+    fun isFilterAccessPackageLocalChecked() = this.filterAccessPackageLocalCheckbox.isSelected
+
+    fun isFilterAccessPrivateChecked() = this.filterAccessPrivateCheckbox.isSelected
 
     fun getCanvasSize(): Dimension = this.canvasPanel.size
 
@@ -331,7 +319,7 @@ class CallGraphToolWindow {
                 this.searchTextField
         ).forEach { (it as JComponent).isEnabled = false }
         // filter-related checkboxes
-        this.filterAccessCheckboxes.forEach {
+        this.filterCheckboxes.forEach {
             it.isEnabled = false
             it.isSelected = true
         }
@@ -365,7 +353,7 @@ class CallGraphToolWindow {
                 this.searchTextField
         ).forEach { (it as JComponent).isEnabled = true }
         // filter-related checkboxes
-        this.filterAccessCheckboxes.forEach { it.isEnabled = true }
+        this.filterCheckboxes.forEach { it.isEnabled = true }
     }
 
     private fun getSelectedBuildType(): CanvasConfig.BuildType {

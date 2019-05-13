@@ -126,31 +126,25 @@ object Utils {
                 })
     }
 
-    fun getMethodPackageName(psiMethod: PsiMethod): String {
+    fun getMethodPackageName(method: PsiMethod): String {
         // get package name
-        val psiJavaFile = psiMethod.containingFile as PsiJavaFile
+        val psiJavaFile = method.containingFile as PsiJavaFile
         val packageName = psiJavaFile.packageStatement?.packageName ?: ""
         // get class name
-        val className = psiMethod.containingClass?.qualifiedName ?: ""
+        val className = method.containingClass?.qualifiedName ?: ""
         return if (packageName.isBlank() || className.startsWith(packageName)) className else "$packageName.$className"
     }
 
-    fun getMethodFilePath(method: PsiMethod): String {
-        val psiFile = PsiTreeUtil.getParentOfType(method, PsiFile::class.java)
-        if (psiFile != null) {
-            val currentFile = psiFile.virtualFile
-            val project = getActiveProject()
-            if (project != null) {
-                val rootFile = ProjectFileIndex.SERVICE.getInstance(project).getContentRootForFile(currentFile)
-                if (rootFile != null) {
-                    val relativePath = VfsUtilCore.getRelativePath(currentFile, rootFile)
-                    if (relativePath != null) {
-                        return relativePath
-                    }
-                }
-            }
-        }
-        return "(empty)"
+    fun getMethodFilePath(method: PsiMethod): String? {
+        val file = method.containingFile.virtualFile
+        val sourceRoot = getSourceRoot(file)
+        return if (sourceRoot == null) null else VfsUtilCore.getRelativePath(file, sourceRoot)
+    }
+
+    fun getSourceRoot(file: VirtualFile): VirtualFile? {
+        val project = getActiveProject()
+
+        return if (project == null) null else ProjectFileIndex.SERVICE.getInstance(project).getContentRootForFile(file)
     }
 
     fun getMethodSignature(method: PsiMethod): String {

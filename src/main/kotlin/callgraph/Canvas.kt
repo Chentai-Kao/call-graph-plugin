@@ -165,21 +165,23 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         repaint()
     }
 
-    fun getNodesCount(): Int {
-        return this.graph.getNodes().size
-    }
+    fun getNodesCount() = this.graph.getNodes().size
 
-    fun filterAccessChangeHandler() {
+    fun filterChangeHandler() {
         this.visibleNodes = this.graph.getNodes()
                 .filter { node ->
                     val method = node.method
-                    when {
+                    val isVisibleAccessLevel = when {
                         Utils.isPublic(method) -> this.callGraphToolWindow.isFilterAccessPublicChecked()
                         Utils.isProtected(method) -> this.callGraphToolWindow.isFilterAccessProtectedChecked()
                         Utils.isPackageLocal(method) -> this.callGraphToolWindow.isFilterAccessPackageLocalChecked()
                         Utils.isPrivate(method) -> this.callGraphToolWindow.isFilterAccessPrivateChecked()
                         else -> true
                     }
+                    val isExternalMethod = Utils.getSourceRoot(method.containingFile.virtualFile) == null
+                    val isVisibleExternal = !isExternalMethod || this.callGraphToolWindow.isFilterExternalChecked()
+
+                    isVisibleAccessLevel && isVisibleExternal
                 }
                 .toSet()
         this.visibleEdges = this.graph.getEdges()
@@ -248,7 +250,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         }
         // file path
         if (this.callGraphToolWindow.isRenderFunctionFilePath(isNodeHovered)) {
-            val filePath = Utils.getMethodFilePath(node.method)
+            val filePath = Utils.getMethodFilePath(node.method) ?: "(no file)"
             labels.add(filePath to Colors.UN_HIGHLIGHTED_COLOR.color)
         }
         return labels
