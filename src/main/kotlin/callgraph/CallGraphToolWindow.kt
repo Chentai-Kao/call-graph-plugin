@@ -194,6 +194,8 @@ class CallGraphToolWindow {
 
     fun isFilterAccessPrivateChecked() = this.filterAccessPrivateCheckbox.isSelected
 
+    fun isLegendNeeded() = getSelectedComboBoxOption(this.nodeColorComboBox) != ComboBoxOptions.NODE_COLOR_NONE
+
     fun getCanvasSize(): Dimension = this.canvasPanel.size
 
     fun run(buildType: CanvasConfig.BuildType) {

@@ -14,11 +14,17 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private val nodeRadius = 5f
     private val regularLineWidth = 1.0f
     private val solidLineStroke = BasicStroke(regularLineWidth)
-    private val methodAccessColorMap = mapOf<String, Color>(
+    private val methodAccessColorMap = mapOf(
             PsiModifier.PUBLIC to Colors.GREEN.color,
             PsiModifier.PROTECTED to Colors.LIGHT_ORANGE.color,
             PsiModifier.PACKAGE_LOCAL to Colors.BLUE.color,
             PsiModifier.PRIVATE to Colors.RED.color
+    )
+    private val methodAccessLabelMap = mapOf(
+            PsiModifier.PUBLIC to "public",
+            PsiModifier.PROTECTED to "protected",
+            PsiModifier.PACKAGE_LOCAL to "package local",
+            PsiModifier.PRIVATE to "private"
     )
     private val heatMapColors = listOf(
             Colors.DEEP_BLUE.color,
@@ -98,6 +104,17 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                     drawNode(graphics2D, it, Colors.HIGHLIGHTED_COLOR.color)
                     drawNodeLabels(graphics2D, it, Colors.HIGHLIGHTED_COLOR.color, true)
                 }
+
+        // draw legend
+        if (this.callGraphToolWindow.isLegendNeeded()) {
+            val legend = if (this.callGraphToolWindow.isNodeColorByAccess()) {
+                listOf(PsiModifier.PUBLIC, PsiModifier.PROTECTED, PsiModifier.PACKAGE_LOCAL, PsiModifier.PRIVATE)
+                        .map { this.methodAccessLabelMap.getValue(it) to this.methodAccessColorMap.getValue(it) }
+            } else {
+                emptyList()
+            }
+            drawLegend(graphics2D, legend)
+        }
     }
 
     fun reset(graph: Graph) {
@@ -202,6 +219,16 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         return this.hoveredNode === node || this.callGraphToolWindow.isFocusedMethod(node.method)
     }
 
+    private fun drawLegend(graphics2D: Graphics2D, labels: List<Pair<String, Color>>) {
+        val singleLabelHeight = graphics2D.fontMetrics.ascent + graphics2D.fontMetrics.descent
+        val boundingBoxLowerLeft = Point2D.Float(
+                0f,
+                labels.size * singleLabelHeight.toFloat()
+        )
+        drawLabels(graphics2D, boundingBoxLowerLeft, labels, Colors.BACKGROUND_COLOR.color,
+                Colors.UN_HIGHLIGHTED_COLOR.color, 1)
+    }
+
     private fun drawSelfLoopEdge(graphics2D: Graphics2D, edge: Edge, isHighlighted: Boolean) {
         val sourceNodeCenter = toCameraView(edge.sourceNode.point)
         drawSelfLoop(graphics2D, sourceNodeCenter, isHighlighted)
@@ -240,40 +267,54 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private fun createNodeLabels(node: Node, signatureColor: Color, isNodeHovered: Boolean): List<Pair<String, Color>> {
         // draw labels in top-down order
         val labels = mutableListOf<Pair<String, Color>>()
-        // function signature
-        val signature = if (isNodeHovered) Utils.getMethodSignature(node.method) else node.method.name
-        labels.add(signature to signatureColor)
-        // package name
-        if (this.callGraphToolWindow.isRenderFunctionPackageName(isNodeHovered)) {
-            val packageName = Utils.getMethodPackageName(node.method)
-            labels.add(packageName to Colors.UN_HIGHLIGHTED_COLOR.color)
-        }
         // file path
         if (this.callGraphToolWindow.isRenderFunctionFilePath(isNodeHovered)) {
             val filePath = Utils.getMethodFilePath(node.method) ?: "(no file)"
             labels.add(filePath to Colors.UN_HIGHLIGHTED_COLOR.color)
         }
+        // package name
+        if (this.callGraphToolWindow.isRenderFunctionPackageName(isNodeHovered)) {
+            val packageName = Utils.getMethodPackageName(node.method)
+            labels.add(packageName to Colors.UN_HIGHLIGHTED_COLOR.color)
+        }
+        // function signature
+        val signature = if (isNodeHovered) Utils.getMethodSignature(node.method) else node.method.name
+        labels.add(signature to signatureColor)
         return labels
     }
 
     private fun drawNodeLabels(graphics2D: Graphics2D, node: Node, labelColor: Color, isNodeHovered: Boolean) {
         // create labels
         val labels = createNodeLabels(node, labelColor, isNodeHovered)
-        // fill background to overall bounding box
-        val padding = 2 // 1 px padding in the text bounding box
+        val fontMetrics = graphics2D.fontMetrics
+        val halfLabelHeight = 0.5f * (fontMetrics.ascent + fontMetrics.descent)
+        val nodeCenter = toCameraView(node.point)
+        val boundingBoxLowerLeft = Point2D.Float(
+                nodeCenter.x + 4 * nodeRadius,
+                nodeCenter.y + halfLabelHeight
+        )
+        val backgroundColor =
+                if (this.callGraphToolWindow.isQueried(node.method.name)) Colors.HIGHLIGHTED_BACKGROUND_COLOR.color
+                else Colors.BACKGROUND_COLOR.color
+        val borderColor = if (isNodeHovered) Colors.UN_HIGHLIGHTED_COLOR.color else Colors.BACKGROUND_COLOR.color
+        drawLabels(graphics2D, boundingBoxLowerLeft, labels, backgroundColor, borderColor, 2)
+    }
+
+    private fun drawLabels(
+            graphics2D: Graphics2D,
+            boundingBoxLowerLeft: Point2D.Float,
+            labels: List<Pair<String, Color>>,
+            backgroundColor: Color,
+            borderColor: Color,
+            padding: Int
+    ) {
         val fontMetrics = graphics2D.fontMetrics
         val singleLabelHeight = fontMetrics.ascent + fontMetrics.descent
         val boundingBoxWidth = labels
-                .map { (text, _) -> fontMetrics.getStringBounds(text, graphics2D).width.toFloat() }
+                .map { (text, _) -> fontMetrics.getStringBounds(text, graphics2D).width.toInt() }
                 .max()
-                ?: 0.0f
+                ?: 0
         val boundingBoxHeight = labels.size * singleLabelHeight
-        val nodeCenter = toCameraView(node.point)
-        val nodeDiameter = 2 * nodeRadius
-        val boundingBoxLowerLeft = Point2D.Float(
-                nodeCenter.x + 2 * nodeDiameter - padding,
-                nodeCenter.y + 0.5f * singleLabelHeight + padding
-        )
         val boundingBoxUpperLeft = Point2D.Float(
                 boundingBoxLowerLeft.x,
                 boundingBoxLowerLeft.y - 2 * padding - boundingBoxHeight
@@ -286,30 +327,26 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                 boundingBoxUpperRight.x,
                 boundingBoxLowerLeft.y
         )
-        val textBackgroundColor =
-                if (this.callGraphToolWindow.isQueried(node.method.name)) Colors.HIGHLIGHTED_BACKGROUND_COLOR.color
-                else Colors.BACKGROUND_COLOR.color
-        graphics2D.color = textBackgroundColor
+        // fill background to overall bounding box
+        graphics2D.color = backgroundColor
         graphics2D.fillRect(
                 (boundingBoxUpperLeft.x + 1).toInt(),
                 (boundingBoxUpperLeft.y + 1).toInt(),
-                (boundingBoxUpperRight.x - boundingBoxUpperLeft.x - 1).toInt(),
-                (boundingBoxLowerLeft.y - boundingBoxUpperLeft.y - 1).toInt()
+                2 * padding + boundingBoxWidth,
+                2 * padding + boundingBoxHeight
         )
         // draw border if the node is hovered
-        if (isNodeHovered) {
-            drawLine(graphics2D, boundingBoxLowerLeft, boundingBoxUpperLeft, Colors.UN_HIGHLIGHTED_COLOR.color)
-            drawLine(graphics2D, boundingBoxUpperLeft, boundingBoxUpperRight, Colors.UN_HIGHLIGHTED_COLOR.color)
-            drawLine(graphics2D, boundingBoxUpperRight, boundingBoxLowerRight, Colors.UN_HIGHLIGHTED_COLOR.color)
-            drawLine(graphics2D, boundingBoxLowerRight, boundingBoxLowerLeft, Colors.UN_HIGHLIGHTED_COLOR.color)
-        }
+        drawLine(graphics2D, boundingBoxLowerLeft, boundingBoxUpperLeft, borderColor)
+        drawLine(graphics2D, boundingBoxUpperLeft, boundingBoxUpperRight, borderColor)
+        drawLine(graphics2D, boundingBoxUpperRight, boundingBoxLowerRight, borderColor)
+        drawLine(graphics2D, boundingBoxLowerRight, boundingBoxLowerLeft, borderColor)
         // draw text
-        labels.mapIndexed { index, (text, color) ->
-            val labelCenterLeft = Point2D.Float(
+        labels.reversed().mapIndexed { index, (text, color) ->
+            val labelLowerLeft = Point2D.Float(
                     boundingBoxLowerLeft.x + padding,
-                    nodeCenter.y - index * singleLabelHeight
+                    boundingBoxLowerLeft.y - padding - fontMetrics.descent - index * singleLabelHeight
             )
-            drawText(graphics2D, labelCenterLeft, text, color)
+            drawText(graphics2D, labelLowerLeft, text, color)
         }
     }
 
@@ -340,12 +377,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         return shape
     }
 
-    private fun drawText(graphics2D: Graphics2D, textCenterLeft: Point2D.Float, text: String, textColor: Color) {
-        val fontMetrics = graphics2D.fontMetrics
-        val textLowerLeft = Point2D.Float(
-                textCenterLeft.x,
-                textCenterLeft.y + 0.5f * (fontMetrics.ascent - fontMetrics.descent)
-        )
+    private fun drawText(graphics2D: Graphics2D, textLowerLeft: Point2D.Float, text: String, textColor: Color) {
         graphics2D.color = textColor
         graphics2D.drawString(text, textLowerLeft.x, textLowerLeft.y)
     }
