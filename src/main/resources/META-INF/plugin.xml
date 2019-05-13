@@ -4,7 +4,7 @@
     <name>Call Graph</name>
 
     <!-- Plugin version -->
-    <version>0.1.9</version>
+    <version>0.1.10</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
@@ -91,7 +91,7 @@
     <!-- <helpset file="myhelp.jar" path="/Help.hs" /> -->
 
     <!-- Minimum and maximum build of IDE compatible with the plugin -->
-    <idea-version since-build="162"/>
+    <idea-version since-build="183"/>
 
     <!-- Resource bundle (/messages/MyPluginBundle.properties) to be used with `key` attributes in extension points
          and implicit keys like `action.[pluginID].[ActionID].text` -->
