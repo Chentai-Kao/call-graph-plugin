@@ -10,7 +10,7 @@ import javax.swing.JPanel
 
 class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
     private val defaultCameraOrigin = Point2D.Float(0f, 0f)
-    val cameraOrigin = defaultCameraOrigin
+    val cameraOrigin = Point2D.Float(defaultCameraOrigin.x, defaultCameraOrigin.y)
     private val defaultZoomRatio = 1f
     private val zoomRatio = Point2D.Float(defaultZoomRatio, defaultZoomRatio)
     private val nodeRadius = 5f
