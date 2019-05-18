@@ -14,20 +14,18 @@
     <description><![CDATA[
       <p>A plugin to visualize function call graph of any codebase for IDEs based on the IntelliJ platform.</p>
       <p>The goal is to make codebase extremely easy to understand, necessary for code navigation and debugging.</p>
-      <p>
-        Call Graph supports visualizing function calls within the entire project, a single module, or specific folder.
-        It supports various graph navigation such as pan, zoom in/out,
-        and is able to visualize all upstream and downstream calls of a single function.
-      </p>
       <p>Currently it only supports Java. Other language support will come soon.</p>
       <p>See also:</p>
       <ul>
         <li>
           <a href="https://github.com/Chentai-Kao/call-graph-plugin-public/issues">Issue tracker</a>:
-          feature requests and bug reports
+          feature requests and bug reports.
         </li>
         <li>
-          Love this plugin? Please consider
+          <a href="https://youtu.be/cd8IYPVRkhI">Demo video</a>: a quick glance of its features.
+        </li>
+        <li>
+          Love this plugin? Please leave a review, or consider
           <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=chentai.kao%40gmail.com&item_name=Support+development+of+the+Call+Graph+plugin&currency_code=USD&source=url">donation</a>
           to support the developer.
         </li>
