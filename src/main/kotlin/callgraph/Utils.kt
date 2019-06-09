@@ -89,7 +89,14 @@ object Utils {
 
     fun getMethodsFromFiles(files: Set<PsiFile>) =
             files
-                    .flatMap { (it as PsiJavaFile).classes.toList() } // get all classes
+                    .flatMap { // get all classes
+                        try {
+                            (it as PsiJavaFile).classes.toList()
+                        }
+                        catch (e: ClassCastException) { // when file conversion to Java file type fails
+                            emptyList<PsiClass>()
+                        }
+                    }
                     .flatMap { it.methods.toList() } // get all methods
                     .toSet()
 
