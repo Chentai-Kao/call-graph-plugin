@@ -28,6 +28,7 @@ intellij {
     version '2019.1' // Intellij version to build against
     pluginName 'call-graph'
     intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
+//    plugins 'java' // declaring a dependency on the Java functionality
 }
 
 publishPlugin {
