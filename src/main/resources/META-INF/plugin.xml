@@ -4,7 +4,7 @@
     <name>Call Graph</name>
 
     <!-- Plugin version -->
-    <version>0.1.15</version>
+    <version>0.1.16</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
@@ -14,7 +14,7 @@
     <description><![CDATA[
       <p>A plugin to visualize function call graph of any codebase for IDEs based on the IntelliJ platform.</p>
       <p>The goal is to make codebase extremely easy to understand, necessary for code navigation and debugging.</p>
-      <p>Currently it only supports Java. Other language support will come soon.</p>
+      <p>Currently it only supports Java. If you want a similar tool for Typescript, Javascript, or Python, I highly recommend <a href="https://codemap.app">Codemap</a>, another tool I built.</p>
       <p>See also:</p>
       <ul>
         <li>
