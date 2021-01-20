@@ -72,30 +72,33 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
 
         // draw upstream/downstream edgesMap
         val highlightedNodes = this.visibleNodes.filter { isNodeHighlighted(it) }.toSet()
-        val upstreamEdges = highlightedNodes.flatMap { it.inEdges.values }.toSet()
-        val downstreamEdges = highlightedNodes.flatMap { it.outEdges.values }.toSet()
-        upstreamEdges.forEach { drawNonLoopEdge(graphics2D, it, Colors.UPSTREAM_COLOR.color) }
-        downstreamEdges.forEach { drawNonLoopEdge(graphics2D, it, Colors.DOWNSTREAM_COLOR.color) }
+        val filteredUpstreamEdges = highlightedNodes.flatMap { it.inEdges.values }.toSet()
+                .filter { isNodeVisibleBasedOnVisibilityFilters(it.sourceNode) }
+        val filteredDownstreamEdges = highlightedNodes.flatMap { it.outEdges.values }.toSet()
+                .filter { isNodeVisibleBasedOnVisibilityFilters(it.sourceNode) }
+        filteredUpstreamEdges.forEach { drawNonLoopEdge(graphics2D, it, Colors.UPSTREAM_COLOR.color) }
+        filteredDownstreamEdges.forEach { drawNonLoopEdge(graphics2D, it, Colors.DOWNSTREAM_COLOR.color) }
 
         // draw un-highlighted labels
-        val upstreamNodes = upstreamEdges.map { it.sourceNode }.toSet()
-        val downstreamNodes = downstreamEdges.map { it.targetNode }.toSet()
+        val filteredUpstreamNodes = filteredUpstreamEdges.map { it.sourceNode }.toSet()
+        val filteredDownstreamNodes = filteredDownstreamEdges.map { it.targetNode }.toSet()
         val unHighlightedNodes = this.visibleNodes
-                .filter { !isNodeHighlighted(it) && !upstreamNodes.contains(it) && !downstreamNodes.contains(it) }
+                .filter { !isNodeHighlighted(it) && !filteredUpstreamNodes.contains(it)
+                        && !filteredDownstreamNodes.contains(it) }
                 .toSet()
         unHighlightedNodes.forEach { drawNodeLabels(graphics2D, it, Colors.NEUTRAL_COLOR.color, false) }
 
         // draw un-highlighted nodesMap (upstream/downstream nodesMap are excluded)
         this.nodeShapesMap.clear()
         unHighlightedNodes
-                .filter { !upstreamNodes.contains(it) && !downstreamNodes.contains(it) }
+                .filter { !filteredUpstreamNodes.contains(it) && !filteredDownstreamNodes.contains(it) }
                 .forEach { drawNode(graphics2D, it, Colors.UN_HIGHLIGHTED_COLOR.color) }
 
         // draw upstream/downstream label and nodesMap
-        upstreamNodes.forEach { drawNodeLabels(graphics2D, it, Colors.UPSTREAM_COLOR.color, false) }
-        downstreamNodes.forEach { drawNodeLabels(graphics2D, it, Colors.DOWNSTREAM_COLOR.color, false) }
-        upstreamNodes.forEach { drawNode(graphics2D, it, Colors.UPSTREAM_COLOR.color) }
-        downstreamNodes.forEach { drawNode(graphics2D, it, Colors.DOWNSTREAM_COLOR.color) }
+        filteredUpstreamNodes.forEach { drawNodeLabels(graphics2D, it, Colors.UPSTREAM_COLOR.color, false) }
+        filteredDownstreamNodes.forEach { drawNodeLabels(graphics2D, it, Colors.DOWNSTREAM_COLOR.color, false) }
+        filteredUpstreamNodes.forEach { drawNode(graphics2D, it, Colors.UPSTREAM_COLOR.color) }
+        filteredDownstreamNodes.forEach { drawNode(graphics2D, it, Colors.DOWNSTREAM_COLOR.color) }
 
         // draw highlighted node and label
         this.visibleNodes
@@ -185,25 +188,26 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
 
     fun filterChangeHandler() {
         this.visibleNodes.clear()
-        this.visibleNodes.addAll(this.graph.getNodes()
-                .filter { node ->
-                    val method = node.method
-                    val isVisibleAccessLevel = when {
-                        Utils.isPublic(method) -> this.callGraphToolWindow.isFilterAccessPublicChecked()
-                        Utils.isProtected(method) -> this.callGraphToolWindow.isFilterAccessProtectedChecked()
-                        Utils.isPackageLocal(method) -> this.callGraphToolWindow.isFilterAccessPackageLocalChecked()
-                        Utils.isPrivate(method) -> this.callGraphToolWindow.isFilterAccessPrivateChecked()
-                        else -> true
-                    }
-                    val isExternalMethod = Utils.getSourceRoot(method.containingFile.virtualFile) == null
-                    val isVisibleExternal = !isExternalMethod || this.callGraphToolWindow.isFilterExternalChecked()
-
-                    isVisibleAccessLevel && isVisibleExternal
-                })
+        this.visibleNodes.addAll(this.graph.getNodes().filter(this::isNodeVisibleBasedOnVisibilityFilters))
         this.visibleEdges.clear()
         this.visibleEdges.addAll(graph.getEdges()
                 .filter { this.visibleNodes.contains(it.sourceNode) && this.visibleNodes.contains(it.targetNode) })
         repaint()
+    }
+
+    private fun isNodeVisibleBasedOnVisibilityFilters(node: Node): Boolean {
+        val method = node.method
+        val isVisibleAccessLevel = when {
+            Utils.isPublic(method) -> this.callGraphToolWindow.isFilterAccessPublicChecked()
+            Utils.isProtected(method) -> this.callGraphToolWindow.isFilterAccessProtectedChecked()
+            Utils.isPackageLocal(method) -> this.callGraphToolWindow.isFilterAccessPackageLocalChecked()
+            Utils.isPrivate(method) -> this.callGraphToolWindow.isFilterAccessPrivateChecked()
+            else -> true
+        }
+        val isExternalMethod = Utils.getSourceRoot(method.containingFile.virtualFile) == null
+        val isVisibleExternal = !isExternalMethod || this.callGraphToolWindow.isFilterExternalChecked()
+
+        return isVisibleAccessLevel && isVisibleExternal
     }
 
     private fun toCameraView(point: Point2D.Float): Point2D.Float {
