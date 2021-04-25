@@ -128,7 +128,7 @@ object Utils {
                     override fun run(progressIndicator: ProgressIndicator) {
                         ApplicationManager
                                 .getApplication()
-                                .runReadAction(runnable)
+                                .invokeLater(runnable)
                     }
                 })
     }
@@ -180,7 +180,7 @@ object Utils {
         if (project != null && psiElement is PsiMethod) {
             ToolWindowManager.getInstance(project)
                     .getToolWindow("Call Graph")
-                    .activate {
+                    ?.activate {
                         ServiceManager.getService(project, CallGraphToolWindowProjectService::class.java)
                                 .callGraphToolWindow
                                 .clearFocusedMethods()
@@ -327,8 +327,8 @@ object Utils {
     }
 
     private fun getAverageElementDifference(elements: Set<Int>): Float {
-        val max = elements.max()
-        val min = elements.min()
+        val max = elements.maxOrNull()
+        val min = elements.minOrNull()
         return if (elements.size < 2 || max == null || min == null) 0f else (max - min) / (elements.size - 1).toFloat()
     }
 
@@ -340,8 +340,8 @@ object Utils {
                 .map { blueprint ->
                     val xPoints = blueprint.values.map { it.x }
                     val yPoints = blueprint.values.map { it.y }
-                    val max = Point2D.Float(xPoints.max() ?: 0f, yPoints.max() ?: 0f)
-                    val min = Point2D.Float(xPoints.min() ?: 0f, yPoints.min() ?: 0f)
+                    val max = Point2D.Float(xPoints.maxOrNull() ?: 0f, yPoints.maxOrNull() ?: 0f)
+                    val min = Point2D.Float(xPoints.minOrNull() ?: 0f, yPoints.minOrNull() ?: 0f)
                     val width = max.x - min.x + normalizedGridSize
                     val height = max.y - min.y + normalizedGridSize
                     Triple(blueprint, height, width)
@@ -353,13 +353,13 @@ object Utils {
                 .map { (blueprint, _, _) -> blueprint }
         val baseline = Point2D.Float(0.5f, 0.5f)
         // put the left-most point of the first sub-graph in the view center, by using its y value as central line
-        val yCentralLine = sortedBlueprints.first().values.minBy { it.x }?.y ?: 0f
+        val yCentralLine = sortedBlueprints.first().values.minByOrNull { it.x }?.y ?: 0f
         return sortedBlueprints
                 .mapIndexed { index, blueprint ->
                     // calculate the y-offset of this sub-graph (by summing up all the height of previous sub-graphs)
                     val yOffset = sortedHeights.subList(0, index).sum()
                     // left align the graph by the left-most nodesMap, then centering the baseline
-                    val minX = blueprint.values.map { it.x }.min() ?: 0f
+                    val minX = blueprint.values.map { it.x }.minOrNull() ?: 0f
                     //noinspection UnnecessaryLocalVariable
                     blueprint.mapValues { (_, point) ->
                         Point2D.Float(

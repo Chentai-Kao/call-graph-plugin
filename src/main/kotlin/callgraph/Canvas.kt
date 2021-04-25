@@ -309,7 +309,7 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
         val singleLabelHeight = fontMetrics.ascent + fontMetrics.descent
         val boundingBoxWidth = labels
                 .map { (text, _) -> fontMetrics.getStringBounds(text, graphics2D).width.toInt() }
-                .max()
+                .maxOrNull()
                 ?: 0
         val boundingBoxHeight = labels.size * singleLabelHeight
         val boundingBoxUpperLeft = Point2D.Float(
