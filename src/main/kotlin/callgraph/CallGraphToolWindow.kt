@@ -43,6 +43,7 @@ class CallGraphToolWindow {
     private lateinit var filterAccessProtectedCheckbox: JCheckBox
     private lateinit var filterAccessPackageLocalCheckbox: JCheckBox
     private lateinit var filterAccessPrivateCheckbox: JCheckBox
+    private lateinit var filterTestCheckbox: JCheckBox
 
     private val canvasBuilder = CanvasBuilder()
     private val canvas: Canvas = Canvas(this)
@@ -52,7 +53,8 @@ class CallGraphToolWindow {
             this.filterAccessPublicCheckbox,
             this.filterAccessProtectedCheckbox,
             this.filterAccessPackageLocalCheckbox,
-            this.filterAccessPrivateCheckbox
+            this.filterAccessPrivateCheckbox,
+            this.filterTestCheckbox
     )
 
     init {
@@ -193,6 +195,8 @@ class CallGraphToolWindow {
     fun isFilterAccessPackageLocalChecked() = this.filterAccessPackageLocalCheckbox.isSelected
 
     fun isFilterAccessPrivateChecked() = this.filterAccessPrivateCheckbox.isSelected
+
+    fun isFilterTestChecked() = this.filterTestCheckbox.isSelected
 
     fun isLegendNeeded() = getSelectedComboBoxOption(this.nodeColorComboBox) != ComboBoxOptions.NODE_COLOR_NONE
 
