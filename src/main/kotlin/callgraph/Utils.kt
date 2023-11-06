@@ -21,7 +21,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.*
 import com.intellij.psi.util.PsiTreeUtil
-import guru.nidi.graphviz.attribute.RankDir
+import guru.nidi.graphviz.attribute.Rank
 import guru.nidi.graphviz.engine.Format
 import guru.nidi.graphviz.engine.Graphviz
 import guru.nidi.graphviz.model.Factory.mutGraph
@@ -283,7 +283,7 @@ object Utils {
         val gvGraph = mutGraph("test")
                 .setDirected(true)
                 .graphAttrs()
-                .add(RankDir.LEFT_TO_RIGHT)
+                .add(Rank.dir(Rank.RankDir.LEFT_TO_RIGHT))
         graph.getNodes()
                 .sortedBy { it.method.name }
                 .forEach { node ->

@@ -1,14 +1,14 @@
 <!-- `url` specifies the URL of the plugin homepage (can be opened from "Plugins" settings dialog) -->
 <idea-plugin url="https://plugins.jetbrains.com/plugin/12304-call-graph">
     <!-- Plugin name -->
-    <name>Call Graph</name>
+    <name>Call Graph 2023</name>
 
     <!-- Plugin version -->
-    <version>0.1.17</version>
+    <version>0.1.18</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
-    <id>call-graph</id>
+    <id>call-graph-2023</id>
 
     <!-- Description of the plugin. -->
     <description><![CDATA[
@@ -89,7 +89,7 @@
     <!-- <helpset file="myhelp.jar" path="/Help.hs" /> -->
 
     <!-- Minimum and maximum build of IDE compatible with the plugin -->
-    <idea-version since-build="201"/>
+    <idea-version since-build="231"/>
 
     <!-- Resource bundle (/messages/MyPluginBundle.properties) to be used with `key` attributes in extension points
          and implicit keys like `action.[pluginID].[ActionID].text` -->
