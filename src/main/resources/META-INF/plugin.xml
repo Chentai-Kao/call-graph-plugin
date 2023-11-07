@@ -12,13 +12,25 @@
 
     <!-- Description of the plugin. -->
     <description><![CDATA[
+      <p> The original plugin does not work in IntelliJ IDEA 2023, and the author has stopped maintaining the project.</p>
+
+      <p> There are numerous issues on GitHub requesting a version update.</p>
+
+      <p> Since I am very fond of this plugin and rely on it, I have decided to update it myself.</p>
+
+      <p> <a href="https://github.com/jinceon/call-graph-plugin">Source code of this project</a>: pull requests are welcome! </p>
+
+      <p> Below is the description of the original project.</p>
+
+      <p>================================================================================</p>
+
       <p>A plugin to visualize function call graph of any codebase for IDEs based on the IntelliJ platform.</p>
       <p>The goal is to make codebase extremely easy to understand, necessary for code navigation and debugging.</p>
       <p>Currently it only supports Java. If you want a similar tool for Typescript, Javascript, or Python, I highly recommend <a href="https://codemap.app">Codemap</a>, another tool I built.</p>
       <p>See also:</p>
       <ul>
         <li>
-          <a href="https://github.com/Chentai-Kao/call-graph-plugin">Source code</a>: pull requests are welcome!
+          <a href="https://github.com/Chentai-Kao/call-graph-plugin">Source code</a>
         </li>
         <li>
           <a href="https://youtu.be/cd8IYPVRkhI">Demo video</a>: a quick glance of its features.
