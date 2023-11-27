@@ -27,7 +27,7 @@ apply plugin: 'org.jetbrains.intellij'
 apply plugin: 'kotlin'
 
 intellij {
-    version = '2023.1' // Intellij version to build against
+    version = '2023.2' // Intellij version to build against
     plugins = ['java'] // declaring a dependency on the Java functionality
 }
 

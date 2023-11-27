@@ -4,7 +4,7 @@
     <name>Call Graph 2023</name>
 
     <!-- Plugin version -->
-    <version>0.1.19</version>
+    <version>0.1.20</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
