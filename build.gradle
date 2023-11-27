@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.intellij' version '0.7.2'
-    id "org.jetbrains.kotlin.jvm" version "1.4.32"
+    id 'org.jetbrains.intellij' version '1.13.0'
+    id "org.jetbrains.kotlin.jvm" version "1.8.0"
 }
 
 group 'com.jetbrains'
@@ -10,14 +10,16 @@ group 'com.jetbrains'
 sourceCompatibility = 1.8
 
 repositories {
-    mavenCentral()
+    maven{
+        url 'https://maven.aliyun.com/repository/central'
+    }
 }
 
 dependencies {
-    compile 'guru.nidi:graphviz-java:0.8.0'
-    compile 'org.apache.logging.log4j:log4j-core:2.11.1'
-    compile 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.1'
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    implementation 'guru.nidi:graphviz-java:0.18.1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.2'
 }
 
 apply plugin: 'idea'
@@ -25,12 +27,10 @@ apply plugin: 'org.jetbrains.intellij'
 apply plugin: 'kotlin'
 
 intellij {
-    version '2021.1' // Intellij version to build against
-    pluginName 'call-graph'
-    intellij.updateSinceUntilBuild false // Disables updating since-build attribute in plugin.xml <idea-version>
+    version = '2023.2' // Intellij version to build against
     plugins = ['java'] // declaring a dependency on the Java functionality
 }
 
-publishPlugin {
-    token intellijPublishToken
-}
+//publishPlugin {
+//    token intellijPublishToken
+//}
