@@ -32,9 +32,13 @@ class CanvasBuilder {
         val graph = Graph()
         methods.forEach { graph.addNode(it) }
         dependencyView.forEach {
-            graph.addNode(it.caller)
-            graph.addNode(it.callee)
-            graph.addEdge(it.caller, it.callee)
+            val caller = it.caller.element
+            val callee = it.callee.element
+            if (caller != null && callee != null) {
+                graph.addNode(caller)
+                graph.addNode(callee)
+                graph.addEdge(caller, callee)
+            }
         }
         Utils.layout(graph)
         return graph
@@ -58,6 +62,7 @@ class CanvasBuilder {
         val invalidFiles = dependenciesCache
                 .filter { !validDependencies.contains(it) }
                 .flatMap { listOf(it.caller.containingFile, it.callee.containingFile) }
+                .filterNotNull()
                 .toSet()
         val filesToParse = newFiles.union(invalidFiles)
         val methodsToParse = Utils.getMethodsFromFiles(filesToParse)

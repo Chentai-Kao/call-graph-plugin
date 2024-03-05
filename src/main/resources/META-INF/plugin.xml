@@ -4,7 +4,7 @@
     <name>Call Graph</name>
 
     <!-- Plugin version -->
-    <version>0.1.17</version>
+    <version>0.1.18</version>
 
     <!-- Unique identifier of the plugin. Cannot be changed between the plugin versions.
          If not specified, assumed to be equal to <name>. -->
@@ -89,7 +89,7 @@
     <!-- <helpset file="myhelp.jar" path="/Help.hs" /> -->
 
     <!-- Minimum and maximum build of IDE compatible with the plugin -->
-    <idea-version since-build="201"/>
+    <idea-version since-build="231"/>
 
     <!-- Resource bundle (/messages/MyPluginBundle.properties) to be used with `key` attributes in extension points
          and implicit keys like `action.[pluginID].[ActionID].text` -->
@@ -154,19 +154,19 @@
                  - "icon" (optional) specifies the icon displayed on the toolbar button or next to the menu item. -->
             <action id="CallGraph.ViewUpstreamDownstreamCallGraphFromSource"
                     class="callgraph.ViewUpstreamDownstreamAction"
-                    text="View upstream/downstream call graph"
+                    text="View Upstream/Downstream"
                     description="View the upstream/downstream call graph of this function"
                     icon="/icons/icon.svg">
             </action>
             <action id="CallGraph.ViewUpstreamCallGraphFromSource"
                     class="callgraph.ViewUpstreamAction"
-                    text="View upstream call graph"
+                    text="View Upstream"
                     description="View the upstream call graph of this function"
                     icon="/icons/icon.svg">
             </action>
             <action id="CallGraph.ViewDownstreamCallGraphFromSource"
                     class="callgraph.ViewDownstreamAction"
-                    text="View downstream call graph"
+                    text="View Downstream"
                     description="View the downstream call graph of this function"
                     icon="/icons/icon.svg">
             </action>
@@ -208,9 +208,6 @@
                 icon="/icons/icon.svg"
                 anchor="right"
                 factoryClass="callgraph.CallGraphToolWindowFactory"/>
-        <!-- Project service holds a reference to the tool window, which is accessible by an action (editor menu) -->
-        <projectService serviceInterface="callgraph.CallGraphToolWindowProjectService"
-                        serviceImplementation="callgraph.CallGraphToolWindowProjectService"/>
     </extensions>
 
     <!-- <extensions defaultExtensionNs="com.intellij">

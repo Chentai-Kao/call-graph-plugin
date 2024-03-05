@@ -1,6 +1,6 @@
 package callgraph
 
 import com.intellij.psi.PsiMethod
+import com.intellij.psi.SmartPsiElementPointer
 
-@Suppress("StatefulEp")
-data class Dependency(val caller: PsiMethod, val callee: PsiMethod)
+data class Dependency(val caller: SmartPsiElementPointer<PsiMethod>, val callee: SmartPsiElementPointer<PsiMethod>)

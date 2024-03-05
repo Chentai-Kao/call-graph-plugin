@@ -12,7 +12,7 @@ enum class ComboBoxOptions(val text: String) {
     DUMMY("(Dummy value)");
 
     companion object {
-        private val reverseMap = values().associateBy(ComboBoxOptions::text)
+        private val reverseMap = entries.associateBy(ComboBoxOptions::text)
 
         fun fromText(text: String) = reverseMap.getValue(text)
     }

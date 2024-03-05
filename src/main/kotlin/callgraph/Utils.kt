@@ -3,7 +3,7 @@ package callgraph
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.components.ServiceManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.progress.ProgressIndicator
@@ -12,7 +12,6 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.roots.ModuleRootManager
-import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -20,8 +19,9 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.*
+import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.util.PsiTreeUtil
-import guru.nidi.graphviz.attribute.RankDir
+import guru.nidi.graphviz.attribute.Rank
 import guru.nidi.graphviz.engine.Format
 import guru.nidi.graphviz.engine.Graphviz
 import guru.nidi.graphviz.model.Factory.mutGraph
@@ -29,7 +29,7 @@ import guru.nidi.graphviz.model.Factory.mutNode
 import java.awt.geom.Point2D
 
 object Utils {
-    private const val normalizedGridSize = 0.1f
+    private const val NORMALIZED_GRID_SIZE = 0.1f
 
     fun getActiveProject(): Project? {
         return ProjectManager.getInstance()
@@ -51,13 +51,13 @@ object Utils {
             CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST_LIMITED,
             CanvasConfig.BuildType.MODULE_LIMITED,
             CanvasConfig.BuildType.DIRECTORY_LIMITED -> dependencies
-                    .filter { methods.contains(it.caller) && methods.contains(it.callee) }
+                    .filter { methods.contains(it.caller.element) && methods.contains(it.callee.element) }
                     .toSet()
             CanvasConfig.BuildType.WHOLE_PROJECT_WITH_TEST,
             CanvasConfig.BuildType.WHOLE_PROJECT_WITHOUT_TEST,
             CanvasConfig.BuildType.MODULE,
             CanvasConfig.BuildType.DIRECTORY -> dependencies
-                    .filter { methods.contains(it.caller) || methods.contains(it.callee) }
+                    .filter { methods.contains(it.caller.element) || methods.contains(it.callee.element) }
                     .toSet()
             CanvasConfig.BuildType.UPSTREAM ->
                 getNestedDependencyView(dependencies, methods, mutableSetOf(), true)
@@ -100,14 +100,19 @@ object Utils {
                     .flatMap { it.methods.toList() } // get all methods
                     .toSet()
 
-    fun getDependenciesFromMethod(method: PsiMethod) =
-            PsiTreeUtil
-                    .findChildrenOfType(method, PsiIdentifier::class.java)
-                    .mapNotNull { it.context }
-                    .flatMap { it.references.toList() }
-                    .map { it.resolve() }
-                    .filter { it is PsiMethod }
-                    .map { Dependency(method, it as PsiMethod) }
+    fun getDependenciesFromMethod(method: PsiMethod): List<Dependency> {
+        val methodPointer = toSmartPsiElementPointer(method)
+        return PsiTreeUtil
+            .findChildrenOfType(method, PsiIdentifier::class.java)
+            .mapNotNull { it.context }
+            .flatMap { it.references.toList() }
+            .map { it.resolve() }
+            .filterIsInstance<PsiMethod>()
+            .map { Dependency(methodPointer, toSmartPsiElementPointer(it)) }
+    }
+
+    private fun toSmartPsiElementPointer(method: PsiMethod) =
+        SmartPointerManager.getInstance(method.project).createSmartPsiElementPointer(method)
 
     fun layout(graph: Graph) {
         // get connected components from the graph, and render each part separately
@@ -116,7 +121,7 @@ object Utils {
                 .map { this.normalizeBlueprintGridSize(it) }
                 .toList()
 
-        // merge all connected components to a single graph, then adjust node coordinates so they fit in the view
+        // merge all connected components to a single graph, then adjust node coordinates, so they fit in the view
         val mergedBlueprint = this.mergeNormalizedLayouts(subGraphBlueprints)
         applyRawLayoutBlueprintToGraph(mergedBlueprint, graph)
         applyLayoutBlueprintToGraph(mergedBlueprint, graph)
@@ -124,7 +129,7 @@ object Utils {
 
     fun runBackgroundTask(project: Project, runnable: Runnable) {
         ProgressManager.getInstance()
-                .run(object: Task.Backgroundable(project, "Call Graph") {
+                .run(object: Task.Backgroundable(project, "Call graph") {
                     override fun run(progressIndicator: ProgressIndicator) {
                         ApplicationManager
                                 .getApplication()
@@ -150,8 +155,7 @@ object Utils {
 
     fun getSourceRoot(file: VirtualFile): VirtualFile? {
         val project = getActiveProject()
-
-        return if (project == null) null else ProjectFileIndex.SERVICE.getInstance(project).getContentRootForFile(file)
+        return if (project == null) null else ProjectRootManager.getInstance(project).fileIndex.getContentRootForFile(file)
     }
 
     fun getMethodSignature(method: PsiMethod): String {
@@ -181,8 +185,8 @@ object Utils {
             ToolWindowManager.getInstance(project)
                     .getToolWindow("Call Graph")
                     ?.activate {
-                        ServiceManager.getService(project, CallGraphToolWindowProjectService::class.java)
-                                .callGraphToolWindow
+                        project.service<CallGraphToolWindowProjectService>()
+                            .callGraphToolWindow
                                 .clearFocusedMethods()
                                 .toggleFocusedMethod(psiElement)
                                 .run(buildType)
@@ -213,7 +217,7 @@ object Utils {
             sourceCodeRoots
                     .flatMap { contentSourceRoot ->
                         val childrenVirtualFiles = mutableListOf<VirtualFile>()
-                        VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null, {
+                        VfsUtilCore.iterateChildrenRecursively(contentSourceRoot, null) {
                             if (it.isValid && !it.isDirectory) {
                                 val extension = it.extension
                                 if (extension.equals("java")) {
@@ -221,7 +225,7 @@ object Utils {
                                 }
                             }
                             true
-                        })
+                        }
                         childrenVirtualFiles
                     }
                     .mapNotNull { PsiManager.getInstance(project).findFile(it) }
@@ -262,9 +266,11 @@ object Utils {
         if (methods.isEmpty()) {
             return emptySet()
         }
-        val directPairs = dependencies.filter { methods.contains(if (isUpstream) it.callee else it.caller) }.toSet()
+        val directPairs = dependencies.filter {
+            methods.contains(if (isUpstream) it.callee.element else it.caller.element)
+        }.toSet()
         val nextBatchMethods = directPairs
-                .map { if (isUpstream) it.caller else it.callee }
+                .mapNotNull { if (isUpstream) it.caller.element else it.callee.element }
                 .filter { !seenMethods.contains(it) }
                 .toSet()
         seenMethods.addAll(nextBatchMethods)
@@ -283,7 +289,7 @@ object Utils {
         val gvGraph = mutGraph("test")
                 .setDirected(true)
                 .graphAttrs()
-                .add(RankDir.LEFT_TO_RIGHT)
+                .add(Rank.dir(Rank.RankDir.LEFT_TO_RIGHT))
         graph.getNodes()
                 .sortedBy { it.method.name }
                 .forEach { node ->
@@ -310,7 +316,7 @@ object Utils {
             return blueprint
         }
         val gridSize = getGridSize(blueprint)
-        val desiredGridSize = Point2D.Float(normalizedGridSize, normalizedGridSize)
+        val desiredGridSize = Point2D.Float(NORMALIZED_GRID_SIZE, NORMALIZED_GRID_SIZE)
         val xFactor = if (gridSize.x == 0f) 1f else desiredGridSize.x / gridSize.x
         val yFactor = if (gridSize.y == 0f) 1f else desiredGridSize.y / gridSize.y
         return blueprint.mapValues { (_, point) -> Point2D.Float(point.x * xFactor, point.y * yFactor) }
@@ -342,8 +348,8 @@ object Utils {
                     val yPoints = blueprint.values.map { it.y }
                     val max = Point2D.Float(xPoints.maxOrNull() ?: 0f, yPoints.maxOrNull() ?: 0f)
                     val min = Point2D.Float(xPoints.minOrNull() ?: 0f, yPoints.minOrNull() ?: 0f)
-                    val width = max.x - min.x + normalizedGridSize
-                    val height = max.y - min.y + normalizedGridSize
+                    val width = max.x - min.x + NORMALIZED_GRID_SIZE
+                    val height = max.y - min.y + NORMALIZED_GRID_SIZE
                     Triple(blueprint, height, width)
                 }
         val sortedHeights = blueprintSizes.map { (_, height, _) -> height }.sortedBy { -it }
