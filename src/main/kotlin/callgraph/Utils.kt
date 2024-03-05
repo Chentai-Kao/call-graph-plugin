@@ -208,6 +208,8 @@ object Utils {
 
     fun isPrivate(method: PsiMethod) = method.modifierList.hasModifierProperty(PsiModifier.PRIVATE)
 
+    fun isTest(method: PsiMethod) = getMethodPackageName(method).contains("test", ignoreCase = true)
+
     fun getAllSourceCodeFiles(project: Project): Set<PsiFile> {
         val sourceCodeRoots = getAllSourceCodeRoots(project)
         return getSourceCodeFiles(project, sourceCodeRoots)

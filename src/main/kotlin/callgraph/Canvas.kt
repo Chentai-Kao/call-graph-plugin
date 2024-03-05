@@ -197,8 +197,9 @@ class Canvas(private val callGraphToolWindow: CallGraphToolWindow): JPanel() {
                     }
                     val isExternalMethod = Utils.getSourceRoot(method.containingFile.virtualFile) == null
                     val isVisibleExternal = !isExternalMethod || this.callGraphToolWindow.isFilterExternalChecked()
+                    val isVisibleTest = !Utils.isTest(method) || this.callGraphToolWindow.isFilterTestChecked()
 
-                    isVisibleAccessLevel && isVisibleExternal
+                    isVisibleAccessLevel && isVisibleExternal && isVisibleTest
                 })
         this.visibleEdges.clear()
         this.visibleEdges.addAll(graph.getEdges()
